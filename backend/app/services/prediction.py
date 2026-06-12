@@ -125,7 +125,7 @@ class PredictionService:
                 
                 if name not in record:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail=f"Record {idx} is missing required feature '{name}'."
                     )
                 
@@ -138,7 +138,7 @@ class PredictionService:
                         row.append(float(val))
                 except (ValueError, TypeError):
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail=f"Failed to cast feature '{name}' to type '{expected_type}' for record {idx}."
                     )
             processed_inputs.append(row)
