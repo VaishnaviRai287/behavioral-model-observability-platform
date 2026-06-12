@@ -10,12 +10,7 @@ from app.schemas.model_registry import (
     PredictionPayload,
     PredictionResponse
 )
-from app.schemas.fingerprint import FingerprintResponse
 from app.services.prediction import prediction_service
-from app.services.probing import probing_engine
-from app.crud.fingerprint import fingerprint_crud
-
-
 
 router = APIRouter()
 
@@ -92,32 +87,3 @@ async def predict_model(
     Execute predictions on a registered model artifact.
     """
     return await prediction_service.predict(db=db, model_id=model_id, raw_inputs=payload.inputs)
-
-@router.post("/{model_id}/probe", response_model=FingerprintResponse)
-async def probe_model(
-    model_id: UUID,
-    num_samples: int = 1000,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Generate a behavioral fingerprint baseline using Latin Hypercube Sampling.
-    """
-    return await probing_engine.run_probing_and_fingerprint(
-        db=db, model_id=model_id, num_samples=num_samples
-    )
-
-@router.get("/{model_id}/fingerprint", response_model=FingerprintResponse)
-async def get_latest_fingerprint(
-    model_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Retrieve the latest generated behavioral fingerprint for a model.
-    """
-    fingerprint = await fingerprint_crud.get_latest_by_model(db=db, model_id=model_id)
-    if not fingerprint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No fingerprint found for model ID '{model_id}'."
-        )
-    return fingerprint
