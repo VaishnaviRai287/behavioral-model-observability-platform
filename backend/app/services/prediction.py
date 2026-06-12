@@ -9,19 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
 
 from app.crud.model_registry import model_registry_crud
-from app.crud.observability import observability_crud
 from app.services.pytorch_models import StandardTabularClassifier
 
 class BaseModelRunner(abc.ABC):
     """
-    Abstract interface for executing model inferences and retrieving embeddings.
+    Abstract interface for executing model inferences.
     """
     @abc.abstractmethod
     def predict(self, inputs: np.ndarray) -> Dict[str, Any]:
-        pass
-
-    @abc.abstractmethod
-    def get_latent_embeddings(self, inputs: np.ndarray) -> Optional[np.ndarray]:
         pass
 
 class ScikitLearnRunner(BaseModelRunner):
@@ -45,10 +40,6 @@ class ScikitLearnRunner(BaseModelRunner):
             "predictions": predictions.tolist(),
             "probabilities": probabilities
         }
-
-    def get_latent_embeddings(self, inputs: np.ndarray) -> Optional[np.ndarray]:
-        # Scikit-learn tabular models do not have neural embeddings, return None
-        return None
 
 class PyTorchRunner(BaseModelRunner):
     """
@@ -80,23 +71,6 @@ class PyTorchRunner(BaseModelRunner):
             "probabilities": probabilities.numpy().tolist()
         }
 
-    def get_latent_embeddings(self, inputs: np.ndarray) -> Optional[np.ndarray]:
-        # Convert numpy array input to torch float tensor
-        tensor_inputs = torch.tensor(inputs, dtype=torch.float32)
-        activations = []
-        
-        # Capture the output of the hidden layer (layer 1: ReLU)
-        def hook(module, input, output):
-            activations.append(output.detach().cpu().numpy())
-            
-        handle = self.model.network[1].register_forward_hook(hook)
-        
-        with torch.no_grad():
-            self.model(tensor_inputs)
-            
-        handle.remove()
-        return activations[0]
-
 class PredictionService:
     """
     Coordinates model lookups, loading, caching, and inference executions.
@@ -122,7 +96,7 @@ class PredictionService:
         self._model_cache[model_id] = runner
         return runner
 
-    async def predict(self, db: AsyncSession, model_id: UUID, raw_inputs: List[Dict[str, Any]], log_inferences: bool = True) -> Dict[str, Any]:
+    async def predict(self, db: AsyncSession, model_id: UUID, raw_inputs: List[Dict[str, Any]]) -> Dict[str, Any]:
         # 1. Fetch Model from Database Registry
         model = await model_registry_crud.get(db, model_id)
         if not model:
@@ -187,40 +161,11 @@ class PredictionService:
 
         # 4. Run Inference
         try:
-            results = runner.predict(input_array)
+            return runner.predict(input_array)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error running inference during model execution: {str(e)}"
             )
-
-        # 5. Extract and Log Observability parameters asynchronously
-        if log_inferences:
-            embeddings = runner.get_latent_embeddings(input_array)
-            for i, record in enumerate(raw_inputs):
-                emb_list = None
-                if embeddings is not None:
-                    emb_list = embeddings[i].tolist()
-                    
-                prob_list = results["probabilities"]
-                confidence = max(prob_list[i]) if prob_list is not None else 1.0
-                
-                await observability_crud.create_log(
-                    db=db,
-                    model_id=model_id,
-                    features=record,
-                    prediction=results["predictions"][i],
-                    confidence=confidence,
-                    latent_embedding=emb_list
-                )
-                
-            # Trigger Celery drift detection task
-            try:
-                from app.tasks import process_observability_check
-                process_observability_check.delay(str(model_id))
-            except ImportError:
-                pass # Fail silently if celery is not configured (e.g. testing environments)
-
-        return results
 
 prediction_service = PredictionService()
