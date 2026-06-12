@@ -4,7 +4,14 @@ from uuid import UUID
 from typing import List
 from app.api.deps import get_db
 from app.crud.model_registry import model_registry_crud
-from app.schemas.model_registry import ModelRegisterCreate, ModelRegisterResponse
+from app.schemas.model_registry import (
+    ModelRegisterCreate, 
+    ModelRegisterResponse,
+    PredictionPayload,
+    PredictionResponse
+)
+from app.services.prediction import prediction_service
+
 
 router = APIRouter()
 
@@ -69,3 +76,15 @@ async def deregister_model(
             detail="Model not found."
         )
     return model
+
+@router.post("/{model_id}/predict", response_model=PredictionResponse)
+async def predict_model(
+    model_id: UUID,
+    *,
+    db: AsyncSession = Depends(get_db),
+    payload: PredictionPayload
+):
+    """
+    Execute predictions on a registered model artifact.
+    """
+    return await prediction_service.predict(db=db, model_id=model_id, raw_inputs=payload.inputs)

@@ -36,5 +36,26 @@ class ModelRegisterResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    # Pydantic v2 configuration format
     model_config = ConfigDict(from_attributes=True)
+
+# --- Prediction schemas ---
+
+class PredictionPayload(BaseModel):
+    """
+    Inputs sent to the predict API route.
+    """
+    inputs: List[Dict[str, Any]] = Field(
+        ...,
+        json_schema_extra={
+            "example": [
+                {"tenure": 12, "monthly_charges": 70.5}
+            ]
+        }
+    )
+
+class PredictionResponse(BaseModel):
+    """
+    Outputs returned by the predict API route.
+    """
+    predictions: List[Any] = Field(..., description="Array of prediction outcomes (classes/integers).")
+    probabilities: Optional[List[List[float]]] = Field(None, description="2D array of class probabilities.")
