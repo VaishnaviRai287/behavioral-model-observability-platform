@@ -31,3 +31,8 @@ tests/.pytest_cache/
 
 # Ignore documentation directory
 docs/
+
+# Environment files
+.env
+backend/.env
+*.env
