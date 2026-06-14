@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+psycopg2-binary
+pydantic
+pydantic-settings
+python-multipart
+scikit-learn
+torch
+onnxruntime
+numpy
+pytest
+httpx
+aiosqlite

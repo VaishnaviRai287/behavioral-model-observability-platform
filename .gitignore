@@ -1,38 +1,13 @@
-# Virtual environments
 .venv/
-venv/
-env/
-
-# Python caching and packaging
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-*.egg-info/
-*.egg
-dist/
-build/
-.eggs/
-
-# IDE settings
-.idea/
-*.swp
-*.swo
-*~
-
-# OS specific files
-.DS_Store
-Thumbs.db
-
-# Alembic sqlite test database outputs if created locally
-*.db
-tests/.pytest_cache/
-.pytest_cache/
-
-# Ignore documentation directory
-docs/
-
-# Environment files
+*.pyc
+*.pyo
 .env
-backend/.env
-*.env
+uploads/
+*.pkl
+*.pt
+*.onnx
+*.joblib
+.DS_Store
+
+./docs
