@@ -16,11 +16,17 @@ from app.probing.sampler import generate_probe_inputs
 
 # ── Test DB setup (same pattern as test_models.py) ───────────────────────────
 
-SQLALCHEMY_TEST_URL = "sqlite:///./test_probing.db"
+import os
 
-engine = create_engine(
-    SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False}
+SQLALCHEMY_TEST_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://modelmesh:modelmesh123@localhost:5433/modelmesh"
 )
+
+if SQLALCHEMY_TEST_URL.startswith("sqlite"):
+    engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(SQLALCHEMY_TEST_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

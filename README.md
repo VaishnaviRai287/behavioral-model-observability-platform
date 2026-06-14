@@ -1,5 +1,6 @@
 # ModelMesh: Behavioral Model Observability Platform
 
+[![CI](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml/badge.svg)](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml)
 ModelMesh is a production-grade machine learning model serving and behavioral observability platform. It allows engineers to register models across multiple frameworks (Scikit-Learn, PyTorch, ONNX), explore model behaviors under controlled conditions using Latin Hypercube Sampling (LHS), signature them as statistical fingerprints, serve live predictions with sub-millisecond in-memory caching, and continuously monitor for live behavioral drift against the baseline fingerprint.
 
 ---

@@ -13,13 +13,17 @@ from app.database import Base, get_db
 from app.main import app
 from app.ml import model_cache
 
-# Use an in-memory SQLite database for tests
-# This keeps tests fast and isolated — no Postgres required for tests
-SQLALCHEMY_TEST_URL = "sqlite:///./test.db"
+import os
 
-engine = create_engine(
-    SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False}
+SQLALCHEMY_TEST_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://modelmesh:modelmesh123@localhost:5433/modelmesh"
 )
+
+if SQLALCHEMY_TEST_URL.startswith("sqlite"):
+    engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(SQLALCHEMY_TEST_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

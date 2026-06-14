@@ -1,0 +1,22 @@
+{
+  "features": [
+    {
+      "name": "tenure",
+      "type": "float",
+      "min": 0.0,
+      "max": 100.0
+    },
+    {
+      "name": "monthly_charges",
+      "type": "float",
+      "min": 0.0,
+      "max": 200.0
+    },
+    {
+      "name": "total_charges",
+      "type": "float",
+      "min": 0.0,
+      "max": 20000.0
+    }
+  ]
+}

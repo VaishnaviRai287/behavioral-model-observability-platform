@@ -10,4 +10,10 @@ uploads/
 *.joblib
 .DS_Store
 
+# Databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
 ./docs
