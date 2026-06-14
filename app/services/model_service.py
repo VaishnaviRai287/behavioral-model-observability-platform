@@ -39,6 +39,9 @@ def upload_model(
     suffix = Path(original_filename).suffix  # e.g. ".pkl"
     save_path = Path(settings.upload_dir) / f"{model_id}{suffix}"
 
+    # Ensure upload directory exists
+    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+
     # Save the uploaded file to disk
     try:
         with open(save_path, "wb") as dest:
