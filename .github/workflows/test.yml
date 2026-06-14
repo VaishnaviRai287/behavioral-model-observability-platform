@@ -42,6 +42,7 @@ jobs:
 
       - name: Run test suite
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/modelmesh_test
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/modelmesh_test
         run: |
           pytest tests/ -v
