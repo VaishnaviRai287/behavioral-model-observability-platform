@@ -5,7 +5,7 @@ ModelMesh is a production-grade machine learning model serving and behavioral ob
 
 ---
 
-## 🏗️ Architecture & System Flow
+## Architecture & System Flow
 
 ```mermaid
 graph TD
@@ -24,7 +24,7 @@ graph TD
 
 ---
 
-## ⚡ Key Capabilities
+## Key Capabilities
 
 *   **Unified Model Registry & Runtime**: Support for `.pkl` (Scikit-Learn), `.pt` (PyTorch), and `.onnx` model files with automatic framework detection, input schema validation, and bound-checking.
 *   **Latin Hypercube Sampling (LHS) Probing**: Automatically generates uniform multidimensional test points within feature boundary constraints to safely probe model predictions.
@@ -41,7 +41,7 @@ graph TD
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### 1. Prerequisites
 Ensure you have Python 3.10+ installed.
@@ -69,9 +69,9 @@ The interactive Swagger API documentation will be available at `http://localhost
 
 ---
 
-## 🎮 Interactive Demo
+## Interactive Demo
 
-We have provided a script, `demo.py`, that executes a complete end-to-end simulation of registering a model, generating its baseline fingerprint, executing live queries, and checking for drift.
+I have provided a script, `demo.py`, that executes a complete end-to-end simulation of registering a model, generating its baseline fingerprint, executing live queries, and checking for drift.
 
 With the server running on port 8000, execute:
 ```bash
@@ -90,7 +90,7 @@ python3 demo.py
 
 ---
 
-## 🧪 Testing
+## Testing
 
 To run the complete suite of 66 automated tests:
 ```bash
@@ -99,7 +99,7 @@ pytest tests/ -v
 
 ---
 
-## 📖 API Endpoints Reference
+## API Endpoints Reference
 
 ### 1. Model Registry
 *   `POST /api/v1/models` - Register/Upload a model file along with its metadata and schema.
