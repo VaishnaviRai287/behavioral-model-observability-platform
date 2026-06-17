@@ -528,4 +528,3 @@ Run Prediction
 ```
 
 At the end of Phase 6, V1 is genuinely complete and V2 can start immediately by consuming the existing `fingerprints` and `inference_events` tables for FAISS monitoring and drift detection.
-

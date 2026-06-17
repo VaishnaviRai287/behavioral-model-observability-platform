@@ -13,6 +13,14 @@ class SklearnWrapper(BaseModelWrapper):
         """Load a pickled sklearn model from disk."""
         with open(self.file_path, "rb") as f:
             self._model = pickle.load(f)
+        
+        # Patch scikit-learn model instance attributes for cross-version compatibility
+        if self._model is not None:
+            if not hasattr(self._model, "multi_class"):
+                try:
+                    self._model.multi_class = "auto"
+                except Exception:
+                    pass
 
     def predict(self, input_array: np.ndarray) -> PredictionResult:
         """
@@ -41,3 +49,21 @@ class SklearnWrapper(BaseModelWrapper):
             confidence=confidence,
             raw_output=raw_output,
         )
+
+    def predict_with_activations(self, input_array: np.ndarray) -> tuple[PredictionResult, np.ndarray]:
+        """Run inference and return prediction + proxy activation vector."""
+        result = self.predict(input_array)
+
+        # Extract proxy embeddings
+        if hasattr(self._model, "decision_function"):
+            activations = self._model.decision_function(input_array)
+        elif hasattr(self._model, "predict_proba"):
+            activations = self._model.predict_proba(input_array)
+        else:
+            activations = np.array([result.raw_output] * len(input_array))
+
+        # Ensure activations is 2D array of shape (n_samples, features)
+        if len(activations.shape) == 1:
+            activations = activations.reshape(-1, 1)
+
+        return result, activations

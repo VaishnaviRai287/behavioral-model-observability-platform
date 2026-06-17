@@ -27,7 +27,6 @@ class BaseModelWrapper(ABC):
         """Load the model artifact from disk into memory."""
         ...
 
-    @abstractmethod
     def predict(self, input_array: np.ndarray) -> PredictionResult:
         """
         Run inference on a single input.
@@ -38,5 +37,14 @@ class BaseModelWrapper(ABC):
 
         Returns:
             PredictionResult with predicted_class, confidence, raw_output.
+        """
+        result, _ = self.predict_with_activations(input_array)
+        return result
+
+    @abstractmethod
+    def predict_with_activations(self, input_array: np.ndarray) -> tuple[PredictionResult, np.ndarray]:
+        """
+        Run inference and return the PredictionResult and the internal activation vector
+        as a numpy array of shape (n_samples, n_latent_features).
         """
         ...

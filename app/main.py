@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.middleware.logging import RequestLoggingMiddleware
-from app.routers import models, probes, fingerprints, predictions, health
+from app.routers import models, probes, fingerprints, predictions, health, alerts
+
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -29,11 +31,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
 # Register the routers
 app.include_router(models.router, prefix="/api/v1")
 app.include_router(probes.router, prefix="/api/v1")
 app.include_router(fingerprints.router, prefix="/api/v1")
 app.include_router(predictions.router, prefix="/api/v1")
+app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(health.router)  # No prefix for health endpoints
 
 

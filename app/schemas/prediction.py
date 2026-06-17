@@ -24,6 +24,8 @@ class PredictionResponse(BaseModel):
     confidence: float
     raw_output: list[float]
     latency_ms: float
+    faiss_distance: float | None = None
+    novelty_flag: bool | None = None
 
 
 class PredictionLogResponse(BaseModel):
@@ -32,9 +34,13 @@ class PredictionLogResponse(BaseModel):
     model_id: str
     input_features: dict[str, Any]
     predicted_class: int
+    output_class: int = Field(validation_alias="predicted_class")
     confidence: float
     raw_output: list[float]
     latency_ms: float
+    faiss_distance: float | None = None
+    novelty_flag: bool | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+

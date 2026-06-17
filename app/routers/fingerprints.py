@@ -31,6 +31,14 @@ def get_fingerprint(fingerprint_id: str, db: Session = Depends(get_db)):
     return fingerprint_service.get_fingerprint(db, fingerprint_id)
 
 
+@router.get("/fingerprints/{fingerprint_id}/uncertainty-regions")
+def get_uncertainty_regions(fingerprint_id: str, db: Session = Depends(get_db)):
+    """
+    Dynamically retrieve and calculate uncertainty regions for a fingerprint.
+    """
+    return fingerprint_service.get_uncertainty_regions(db, fingerprint_id)
+
+
 @router.get(
     "/models/{model_id}/fingerprints",
     response_model=list[FingerprintResponse],
@@ -51,6 +59,7 @@ def compare_fingerprints(fp_a_id: str, fp_b_id: str, db: Session = Depends(get_d
     Returns similarity score and verdict: 'stable', 'drifted', or 'severely_drifted'.
     """
     return fingerprint_service.compare(db, fp_a_id, fp_b_id)
+
 
 
 @router.get("/models/{model_id}/drift-status")

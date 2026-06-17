@@ -6,10 +6,6 @@
 
 V1 Scope Locked
 
-### Owner
-
-Vaishnavi
-
 ### Timeline
 
 4 Weeks
@@ -174,10 +170,12 @@ Accepted Formats:
 
 Expected Output:
 
+```json
 {
-"model_id": "uuid",
-"status": "ready"
+  "model_id": "uuid",
+  "status": "ready"
 }
+```
 
 ---
 
@@ -197,7 +195,9 @@ Metadata shall be stored in the models table.
 
 All frameworks shall expose:
 
+```
 predict(input) -> PredictionResult
+```
 
 PredictionResult contains:
 
@@ -213,9 +213,7 @@ The probing engine must remain framework agnostic.
 
 System shall generate synthetic samples using Latin Hypercube Sampling.
 
-Default probe count:
-
-1000
+Default probe count: 1000
 
 Each sample shall:
 
@@ -231,11 +229,7 @@ Results shall be persisted.
 
 System shall identify regions satisfying:
 
-Variance > 75th percentile
-
-AND
-
-Mean Confidence < 0.65
+Variance > 75th percentile AND Mean Confidence < 0.65
 
 Detected regions shall be represented as feature-space bounding boxes.
 
@@ -260,21 +254,19 @@ Fingerprints shall be stored in PostgreSQL.
 
 ## FR-7 Prediction Endpoint
 
-Endpoint:
+Endpoint: `POST /models/{id}/predict`
 
-POST /models/{id}/predict
-
-Input:
-
-Feature payload matching schema.
+Input: Feature payload matching schema.
 
 Output:
 
+```json
 {
-"prediction": 1,
-"confidence": 0.91,
-"latency_ms": 4.2
+  "prediction": 1,
+  "confidence": 0.91,
+  "latency_ms": 4.2
 }
+```
 
 All inference requests shall be logged.
 
@@ -282,9 +274,7 @@ All inference requests shall be logged.
 
 ## FR-8 Fingerprint Retrieval
 
-Endpoint:
-
-GET /models/{id}/fingerprint
+Endpoint: `GET /models/{id}/fingerprint`
 
 Returns full serialized fingerprint.
 
@@ -292,9 +282,7 @@ Returns full serialized fingerprint.
 
 ## FR-9 Model Deletion
 
-Endpoint:
-
-DELETE /models/{id}
+Endpoint: `DELETE /models/{id}`
 
 Removes:
 
@@ -309,80 +297,38 @@ Removes:
 
 ## models
 
-Fields:
-
-* id
-* name
-* framework
-* file_path
-* input_schema
-* status
-* created_at
-
----
+Fields: id, name, framework, file_path, input_schema, status, created_at
 
 ## fingerprints
 
-Fields:
-
-* id
-* model_id
-* fingerprint_hash
-* fingerprint_version
-* confidence_histogram
-* prediction_distribution
-* uncertainty_regions
-* decision_samples
-* probe_count
-* created_at
-
----
+Fields: id, model_id, fingerprint_hash, fingerprint_version, confidence_histogram, prediction_distribution, uncertainty_regions, decision_samples, probe_count, created_at
 
 ## probe_results
 
-Fields:
-
-* id
-* fingerprint_id
-* input_vector
-* output_class
-* confidence
-* output_variance
-
----
+Fields: id, fingerprint_id, input_vector, output_class, confidence, output_variance
 
 ## inference_events
 
-Fields:
-
-* id
-* model_id
-* input_vector
-* output_class
-* confidence
-* latency_ms
-* created_at
+Fields: id, model_id, input_vector, output_class, confidence, latency_ms, created_at
 
 ---
 
 # 9. API Surface
 
-POST /models
-
-GET /models
-
-GET /models/{id}
-
-GET /models/{id}/fingerprint
-
-POST /models/{id}/predict
-
+```
+POST   /models
+GET    /models
+GET    /models/{id}
+GET    /models/{id}/fingerprint
+POST   /models/{id}/predict
 DELETE /models/{id}
+```
 
 ---
 
 # 10. Architecture
 
+```
 Model Upload
 ↓
 Framework Detection
@@ -398,6 +344,7 @@ Fingerprint Generation
 Fingerprint Storage
 ↓
 Prediction API
+```
 
 ---
 
@@ -405,10 +352,7 @@ Prediction API
 
 ## Docker Compose
 
-Services:
-
-* api
-* postgres
+Services: api, postgres
 
 Requirements:
 
@@ -416,30 +360,13 @@ Requirements:
 * Persistent volume for models
 * Health check before API startup
 
----
-
 ## Database Migrations
 
-Alembic required.
-
-Schema creation through migrations only.
-
-No create_all() usage.
-
----
+Alembic required. Schema creation through migrations only.
 
 ## CI Pipeline
 
-GitHub Actions
-
-Runs:
-
-* Ruff
-* Pytest
-
-Pull requests must pass all checks.
-
-README displays CI badge.
+GitHub Actions — runs Ruff + Pytest. Pull requests must pass all checks.
 
 ---
 
@@ -461,45 +388,14 @@ V1 is considered complete when:
 
 # 13. Demo Scenario
 
-Upload churn_model.pkl
+Upload churn_model.pkl → Generate fingerprint → Retrieve uncertainty regions → Run prediction → Inspect confidence output
 
-↓
-
-Generate fingerprint
-
-↓
-
-Retrieve uncertainty regions
-
-↓
-
-Run prediction
-
-↓
-
-Inspect confidence output
-
-Expected Result:
-
-ModelMesh identifies a low-confidence region and exposes it through the fingerprint endpoint, demonstrating successful behavioral analysis.
+Expected Result: ModelMesh identifies a low-confidence region and exposes it through the fingerprint endpoint, demonstrating successful behavioral analysis.
 
 ---
 
 # 14. Future Extensions
 
-V2
+V2: FAISS monitoring, drift detection, alert engine, Prometheus, Grafana
 
-* FAISS monitoring
-* Drift detection
-* Alert engine
-* Prometheus
-* Grafana
-
-V3
-
-* Version management
-* Fingerprint diff engine
-* Behavioral diffing
-* LLM semantic changelog
-* Public deployment
-* Automated demo workflows
+V3: Version management, fingerprint diff engine, behavioral diffing, LLM semantic changelog, public deployment, automated demo workflows

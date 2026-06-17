@@ -24,21 +24,16 @@ class ONNXWrapper(BaseModelWrapper):
         self._input_name = self._session.get_inputs()[0].name
 
     def predict(self, input_array: np.ndarray) -> PredictionResult:
-        """
-        Run inference using ONNX Runtime.
+        """Run standard inference."""
+        result, _ = self.predict_with_activations(input_array)
+        return result
 
-        ONNX Runtime requires inputs as a dict: {input_name: numpy_array}.
-        """
-        # ONNX Runtime requires float32 specifically
+    def predict_with_activations(self, input_array: np.ndarray) -> tuple[PredictionResult, np.ndarray]:
+        """Run inference and return prediction + proxy activation vector."""
         onnx_input = {self._input_name: input_array.astype(np.float32)}
-
-        # run() returns a list of outputs (one per output node)
-        # Most classifiers have one output: the probability array
         outputs = self._session.run(None, onnx_input)
-        probs = outputs[0][0]    # first output, first sample
+        probs = outputs[0][0]
 
-        # Some ONNX models output raw logits instead of probabilities
-        # Apply softmax if values don't sum to ~1.0
         if abs(probs.sum() - 1.0) > 0.01:
             probs = np.exp(probs) / np.exp(probs).sum()
 
@@ -46,8 +41,11 @@ class ONNXWrapper(BaseModelWrapper):
         confidence = float(probs[predicted_class])
         raw_output = probs.tolist()
 
-        return PredictionResult(
+        result = PredictionResult(
             predicted_class=predicted_class,
             confidence=confidence,
             raw_output=raw_output,
         )
+        # Use full class probability list as proxy activation representation
+        activations = np.array([raw_output] * len(input_array))
+        return result, activations

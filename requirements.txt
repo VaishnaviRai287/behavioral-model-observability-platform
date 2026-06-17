@@ -13,3 +13,4 @@ numpy
 pytest
 httpx
 aiosqlite
+faiss-cpu

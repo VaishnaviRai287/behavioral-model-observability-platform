@@ -80,12 +80,26 @@ def list_models(db: Session) -> list[MLModel]:
     return db.query(MLModel).order_by(MLModel.created_at.desc()).all()
 
 
+from app.models.faiss_index import FAISSIndex
+
+
 def get_model(db: Session, model_id: str) -> MLModel:
     """Return a single model by ID or raise 404."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Retrieve FAISS baseline stats if available
+    faiss_idx = db.query(FAISSIndex).filter(FAISSIndex.model_id == model_id).first()
+    if faiss_idx:
+        model.baseline_mean = faiss_idx.baseline_mean_distance
+        model.baseline_std = faiss_idx.baseline_std_distance
+    else:
+        model.baseline_mean = None
+        model.baseline_std = None
+
     return model
+
 
 
 def delete_model(db: Session, model_id: str) -> dict:

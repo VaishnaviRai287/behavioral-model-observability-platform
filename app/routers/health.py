@@ -50,3 +50,4 @@ def health_ready(db: Session = Depends(get_db)):
         "db": db_status,
         "model_cache_size": cache_size(),
     }
+

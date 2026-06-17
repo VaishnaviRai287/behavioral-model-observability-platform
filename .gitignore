@@ -1,19 +1,56 @@
+# ── Python ────────────────────────────────────────────────────────────────────
 .venv/
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.pyw
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
+
+# ── ML model artefacts ────────────────────────────────────────────────────────
+# Stored in the uploads/ directory managed by the API; never commit model files
 uploads/
 *.pkl
 *.pt
 *.onnx
 *.joblib
-.DS_Store
 
-# Databases
+# ── Demo artefacts ────────────────────────────────────────────────────────────
+# The demo script generates a local model file; exclude it
+demo/*.pkl
+demo/*.pt
+demo/*.onnx
+
+# ── Databases & caches ────────────────────────────────────────────────────────
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+.pytest_cache/
 
-./docs
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── Next.js / Node ────────────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+node_modules/
+
+# ── Test & coverage artefacts ─────────────────────────────────────────────────
+.coverage
+htmlcov/
+
+# ── Build / temp directories ──────────────────────────────────────────────────
+tmp-home/
+dist/
+build/
+
+# ── Docs: only committed files with clean kebab-case names ───────────────────
+# Old space-named files (docs/phases , docs/prd v1, etc.) are not tracked.
+# New canonical names: docs/v1-phases.md  docs/v1-prd.md  docs/v2-spec.md  docs/v2-phases.md
+./docs 

@@ -95,10 +95,14 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
     input_array = np.array([input_vector])   # shape (1, n_features)
 
     start_time = time.perf_counter()
-    result = wrapper.predict(input_array)
+    result, activation = wrapper.predict_with_activations(input_array)
     end_time = time.perf_counter()
 
     latency_ms = (end_time - start_time) * 1000   # convert seconds → milliseconds
+
+    # ── Novelty scoring ───────────────────────────────────────────────────────
+    from app.monitoring.novelty_scorer import score_novelty
+    faiss_distance, novelty_flag = score_novelty(db, model_id, activation)
 
     # ── Store prediction log ───────────────────────────────────────────────────
     log = PredictionLog(
@@ -109,9 +113,31 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
         confidence=result.confidence,
         raw_output=result.raw_output,
         latency_ms=latency_ms,
+        faiss_distance=faiss_distance,
+        novelty_flag=novelty_flag,
     )
     db.add(log)
     db.commit()
+
+    # ── Novelty Alert Check ───────────────────────────────────────────────────
+    if novelty_flag:
+        from app.monitoring.alert_engine import process_latent_novelty
+        process_latent_novelty(
+            db,
+            model_id,
+            faiss_distance,
+            {"input_features": features}
+        )
+
+    # ── Synchronous Drift Check (Every 50th prediction) ──────────────────────────
+    prediction_count = db.query(PredictionLog).filter(PredictionLog.model_id == model_id).count()
+    if prediction_count > 0 and prediction_count % 50 == 0:
+        from app.monitoring.drift_detector import detect_drift
+        from app.monitoring.alert_engine import process_feature_drift
+        
+        drift_events = detect_drift(db, model_id, n_recent=100)
+        process_feature_drift(db, model_id, drift_events)
+
 
     return {
         "model_id": model_id,
@@ -119,6 +145,8 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
         "confidence": result.confidence,
         "raw_output": result.raw_output,
         "latency_ms": round(latency_ms, 3),
+        "faiss_distance": round(faiss_distance, 5) if faiss_distance is not None else None,
+        "novelty_flag": novelty_flag,
     }
 
 

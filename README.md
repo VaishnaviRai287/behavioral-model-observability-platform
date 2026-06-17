@@ -1,125 +1,141 @@
-# ModelMesh: Behavioral Model Observability Platform
+# ModelMesh
 
 [![CI](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml/badge.svg)](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml)
-ModelMesh is a production-grade machine learning model serving and behavioral observability platform. It allows engineers to register models across multiple frameworks (Scikit-Learn, PyTorch, ONNX), explore model behaviors under controlled conditions using Latin Hypercube Sampling (LHS), signature them as statistical fingerprints, serve live predictions with sub-millisecond in-memory caching, and continuously monitor for live behavioral drift against the baseline fingerprint.
+
+A self-hosted ML model behavioral analysis engine. Registers trained models,
+probes their decision boundary using Latin Hypercube Sampling, builds a
+behavioral fingerprint, and monitors live inference for combinatorial novelty
+and feature drift — using the model's internal geometry, not just its outputs.
 
 ---
 
-## Architecture & System Flow
+<!-- Replace with your recorded demo GIF once the system is running -->
+<!-- Suggested flow: registry page → upload model → drift simulation → alert firing -->
+<!-- ![ModelMesh demo](docs/demo.gif) -->
+
+---
+
+## What it does
+
+Most ML monitoring tools watch the wrapper around a model — latency, error
+rate, feature distributions. ModelMesh watches the model itself. It builds a
+geometric fingerprint at registration time and uses it to detect when live
+traffic is approaching regions the model has never confidently handled.
+
+---
+
+## Architecture
 
 ```mermaid
-graph TD
-    A[Model Upload] -->|Detect Framework & Store| B(Model Registry)
-    B -->|LHS Sampling / Probing| C[Probing Engine]
-    C -->|Generate Behavioral Baseline| D[Fingerprinting Service]
-    
-    E[Live Prediction Requests] -->|FastAPI Router| F[In-Memory Model Cache]
-    F -->|Inference Execution| G[Unified Runtime]
-    G -->|Write Log| H[(Prediction Logs DB)]
-    
-    H -->|Sample Recent Logs| I[Live Drift Alerting]
-    D -->|Compare Baseline vs Live via Wasserstein Distance| I
-    I -->|GET /drift-status| J[Drift Verdict: Stable / Drifted]
+flowchart LR
+    A[Model Upload] --> B[Probing Engine\nLHS sampling]
+    B --> C[Fingerprint\n+ FAISS Index]
+    C --> D[Predict Endpoint]
+    D --> E[Novelty Scorer\nFAISS k-NN]
+    D --> F[Drift Detector\nKS + PSI]
+    E --> G[Alert Engine]
+    F --> G
+    G --> H[React Dashboard]
 ```
 
 ---
 
-## Key Capabilities
+## Quickstart
 
-*   **Unified Model Registry & Runtime**: Support for `.pkl` (Scikit-Learn), `.pt` (PyTorch), and `.onnx` model files with automatic framework detection, input schema validation, and bound-checking.
-*   **Latin Hypercube Sampling (LHS) Probing**: Automatically generates uniform multidimensional test points within feature boundary constraints to safely probe model predictions.
-*   **Behavioral Fingerprinting**: Captures the model's signature using 4 metrics:
-    1.  *Confidence Histogram* (10-bin probability density)
-    2.  *Entropy* (Normalized predictive uncertainty)
-    3.  *Uncertainty Rate* (Ratio of confidence values below $0.6$)
-    4.  *Class Bias* (Dominant class frequency)
-*   **Live Drift Alerting**: Compares live production traffic logs against stored baseline fingerprints using Earth Mover's Distance / Wasserstein Distance, computing an exact similarity score and returning stable, drifted, or severely drifted verdicts.
-*   **Production Readiness Features**:
-    *   *In-Memory Wrapper Cache*: Dict-based model cache that eliminates disk I/O and pickle deserialization on hot paths.
-    *   *Structured Request Logging*: Emits JSON request lines with unique Request UUID correlation and latency tracking.
-    *   *Health Probes*: Exposes `/health/live` (liveness probe) and `/health/ready` (readiness probe checking database connectivity and cache size).
+```bash
+git clone https://github.com/VaishnaviRai287/behavioral-model-observability-platform
+cd behavioral-model-observability-platform
+docker-compose up
+```
+
+Open **http://localhost:3000** — the dashboard is live.
+API docs at **http://localhost:8000/docs**.
 
 ---
 
-## Setup & Installation
+## Run the demo
 
-### 1. Prerequisites
-Ensure you have Python 3.10+ installed.
+With the stack running, in a separate terminal:
 
-### 2. Install Dependencies
-Create a virtual environment and install the required libraries:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python demo/run_demo.py
 ```
 
-### 3. Run Database Migrations
-Initialize database schemas:
-```bash
-alembic upgrade head
-```
+Uploads a sample logistic regression model, sends 30 normal predictions,
+then 45 drifted predictions. Watch the novelty timeline at
+`localhost:3000` — dots will cross the threshold line and a
+`LATENT_NOVELTY` + `FEATURE_DRIFT` alert will fire in real time.
 
-### 4. Run the API Server
-Start the Uvicorn ASGI server locally:
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-The interactive Swagger API documentation will be available at `http://localhost:8000/docs`.
+Alternatively, use the **Simulate Drift Traffic** button directly inside
+the model dashboard — no CLI needed.
 
 ---
 
-## Interactive Demo
+## What's inside
 
-I have provided a script, `demo.py`, that executes a complete end-to-end simulation of registering a model, generating its baseline fingerprint, executing live queries, and checking for drift.
+**V1 — Model Autopsy**
+- Multi-framework model ingestion (sklearn, PyTorch, ONNX) with automatic framework detection
+- Latin Hypercube Sampling probe sweep across the full feature space
+- Behavioral fingerprint: confidence histogram, entropy, uncertainty rate, class bias
+- Fingerprint comparator (Wasserstein distance) for detecting baseline shift
 
-With the server running on port 8000, execute:
-```bash
-python3 demo.py
-```
-
-### Demo Steps Executed:
-1.  **Trains** a Scikit-Learn Logistic Regression model locally.
-2.  **Uploads & registers** it to the platform.
-3.  **Probes** the model with 100 LHS points to compute prediction stats.
-4.  **Generates the baseline fingerprint** for the probe session.
-5.  **Simulates live traffic** by executing 15 prediction requests.
-6.  **Computes the drift verdict** on live traffic logs.
-7.  **Checks production health status** and model cache allocation.
-8.  **Cleans up** by deleting the test model and invalidating its cache.
+**V2 — Behavioral Monitoring**
+- FAISS-indexed latent space monitor — detects combinatorial novelty at inference time using k-NN distance against probe activations
+- KS + PSI statistical drift detection per feature against probe baseline
+- Alert engine with `LATENT_NOVELTY` and `FEATURE_DRIFT` alert types, severity escalation, and resolve workflow
+- React dashboard with live polling — novelty score timeline, per-feature drift bar chart, active alert management, behavioral fingerprint viewer
 
 ---
 
-## Testing
+## Stack
 
-To run the complete suite of 66 automated tests:
-```bash
-pytest tests/ -v
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI, SQLAlchemy, Alembic, PostgreSQL |
+| ML | scikit-learn, PyTorch, ONNX Runtime, FAISS, scipy, NumPy |
+| Frontend | Next.js 14, Tailwind CSS, Recharts |
+| Infra | Docker Compose, GitHub Actions CI |
+
+---
+
+## Structure
+
+```
+app/
+├── ml/              # model wrappers — sklearn, PyTorch, ONNX
+├── probing/         # LHS sampler + forward-pass probe engine
+├── monitoring/      # FAISS indexer, novelty scorer, drift detector, alert engine
+├── services/        # orchestration layer for each domain
+└── routers/         # FastAPI route handlers
+
+frontend/            # Next.js 14 dashboard (App Router)
+alembic/             # database migrations
+tests/               # pytest suite (71 tests)
+demo/                # sample model + demo script
 ```
 
 ---
 
-## API Endpoints Reference
+## API
 
-### 1. Model Registry
-*   `POST /api/v1/models` - Register/Upload a model file along with its metadata and schema.
-*   `GET /api/v1/models` - List all registered models.
-*   `GET /api/v1/models/{model_id}` - Retrieve metadata for a model.
-*   `DELETE /api/v1/models/{model_id}` - Delete a model record, its file, and evict it from memory.
+```
+POST   /api/v1/models                              register model + auto-detect framework
+GET    /api/v1/models                              list all registered models
+POST   /api/v1/models/{id}/probe                   run LHS probe sweep
+POST   /api/v1/probes/{id}/fingerprint             compile behavioral fingerprint + FAISS index
+POST   /api/v1/models/{id}/predict                 run inference (novelty scored at query time)
+GET    /api/v1/models/{id}/health                  novelty rate + per-feature drift scores
+GET    /api/v1/models/{id}/alerts                  active LATENT_NOVELTY / FEATURE_DRIFT alerts
+GET    /api/v1/models/{id}/predictions             inference timeline (last 100)
+GET    /api/v1/fingerprints/{id}/uncertainty-regions  dynamically computed uncertainty regions
+```
 
-### 2. Probing & Fingerprinting
-*   `POST /api/v1/models/{model_id}/probe` - Trigger an LHS probe session on a model.
-*   `GET /api/v1/probes/{session_id}` - Fetch probe session results.
-*   `POST /api/v1/probes/{session_id}/fingerprint` - Create a baseline fingerprint from a completed probe session.
-*   `GET /api/v1/fingerprints/{fingerprint_id}` - Retrieve a fingerprint by ID.
-*   `GET /api/v1/models/{model_id}/fingerprints` - Retrieve all baseline fingerprints for a model.
-*   `GET /api/v1/fingerprints/{fp_a_id}/compare/{fp_b_id}` - Compute Wasserstein distance and similarity between two fingerprints.
+Full interactive docs at **http://localhost:8000/docs** after `docker-compose up`.
 
-### 3. Prediction Service & Monitoring
-*   `POST /api/v1/models/{model_id}/predict` - Submit a prediction request with validation.
-*   `GET /api/v1/models/{model_id}/predictions` - List recent prediction logs for the model.
-*   `GET /api/v1/models/{model_id}/drift-status` - Query real-time drift verdict on recent traffic.
+---
 
-### 4. Health Checks
-*   `GET /health/live` - Returns `200 OK` liveness status.
-*   `GET /health/ready` - Returns readiness status (including database connection check and cache size).
+## Roadmap
+
+- [x] V1 — Model autopsy: multi-framework ingestion, LHS probing, behavioral fingerprinting
+- [x] V2 — Latent space monitoring: FAISS novelty detection, KS/PSI drift detection, alert engine, React dashboard
+- [ ] V3 — Streaming ingestion via Kafka, per-cohort drift segmentation, fingerprint versioning

@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: modelmesh
       POSTGRES_PASSWORD: modelmesh123
     ports:
-      - "5433:5432"  # Maps port 5433 on the host to match the dev .env configuration
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,9 +18,9 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
+  api:
     build: .
-    container_name: modelmesh-web
+    container_name: modelmesh-api
     ports:
       - "8000:8000"
     environment:
@@ -32,5 +32,15 @@ services:
     volumes:
       - ./uploads:/app/uploads
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:8000
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
+

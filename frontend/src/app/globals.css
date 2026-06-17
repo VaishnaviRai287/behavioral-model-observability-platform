@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-darkBg text-slate-100 antialiased selection:bg-teal-500 selection:text-white min-h-screen flex flex-col;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-darkBg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-darkBorder rounded-full border border-darkBg hover:bg-slate-700 transition-colors;
+  }
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  @apply bg-darkCard/80 backdrop-blur-md border border-darkBorder/60 shadow-lg shadow-black/20;
+}
+
+.glass-panel-hover {
+  @apply transition-all duration-300 hover:border-teal-500/30 hover:shadow-teal-500/5 hover:bg-darkCard;
+}
+
+/* Gradient text */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400;
+}
+
+/* Custom dot glowing animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px 4px rgba(13, 148, 136, 0.25);
+  }
+}
+
+.pulse-glow-teal {
+  animation: pulse-glow 2s infinite;
+}

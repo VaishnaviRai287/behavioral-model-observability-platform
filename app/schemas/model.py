@@ -38,8 +38,11 @@ class ModelDetailResponse(BaseModel):
     input_schema: dict[str, Any]
     status: str
     created_at: datetime
+    baseline_mean: float | None = None
+    baseline_std: float | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+
 
 
 class ModelListItem(BaseModel):

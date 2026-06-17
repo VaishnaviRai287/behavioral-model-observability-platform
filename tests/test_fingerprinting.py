@@ -219,3 +219,18 @@ def test_compare_self_returns_400(client, fingerprint_id):
     """Comparing a fingerprint with itself should return 400."""
     response = client.get(f"/api/v1/fingerprints/{fingerprint_id}/compare/{fingerprint_id}")
     assert response.status_code == 400
+
+
+def test_get_uncertainty_regions(client, fingerprint_id):
+    """GET /fingerprints/{id}/uncertainty-regions returns a list of detected regions."""
+    response = client.get(f"/api/v1/fingerprints/{fingerprint_id}/uncertainty-regions")
+    assert response.status_code == 200
+    regions = response.json()
+    assert isinstance(regions, list)
+    assert len(regions) > 0  # It should fallback to returning top 2 if no low confidence regions
+    for r in regions:
+        assert "feature_bounds" in r
+        assert "mean_confidence" in r
+        assert "sample_density" in r
+        assert "variance" in r
+

@@ -36,10 +36,14 @@ def run_probe_session(db: Session, session: ProbeSession, file_path: str, schema
     results = []
     confidences = []
     class_counts: dict[int, int] = {}
+    activations = []
 
     for input_vector in probe_inputs:
         input_array = np.array([input_vector])   # shape (1, n_features)
-        prediction = wrapper.predict(input_array)
+        
+        # V2-A: Call predict_with_activations to capture intermediate layers
+        prediction, activation = wrapper.predict_with_activations(input_array)
+        activations.append(activation[0])
 
         # Record individual result
         probe_result = ProbeResult(
@@ -59,6 +63,12 @@ def run_probe_session(db: Session, session: ProbeSession, file_path: str, schema
 
     # ── Step 4: Bulk insert probe results ────────────────────────────────────
     db.bulk_save_objects(results)
+
+    # ── Step 4b: Build and save FAISS Index ──────────────────────────────────
+    if activations:
+        from app.monitoring.faiss_indexer import build_and_save_index
+        activation_matrix = np.vstack(activations)
+        build_and_save_index(db, session.model_id, activation_matrix)
 
     # ── Step 5: Compute summary statistics ───────────────────────────────────
     confidence_array = np.array(confidences)
