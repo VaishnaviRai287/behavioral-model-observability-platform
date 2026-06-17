@@ -134,7 +134,6 @@ Full interactive docs at **http://localhost:8000/docs** after `docker-compose up
 
 ---
 
-## Roadmap
 
 - [x] V1 — Model autopsy: multi-framework ingestion, LHS probing, behavioral fingerprinting
 - [x] V2 — Latent space monitoring: FAISS novelty detection, KS/PSI drift detection, alert engine, React dashboard
