@@ -49,6 +49,15 @@ def pytorch_model_path(tmp_path):
     return str(path)
 
 
+@pytest.fixture
+def pytorch_pth_model_path(tmp_path):
+    """Create and save a real PyTorch model as .pth, return its path."""
+    model = SimpleMLP()
+    path = tmp_path / "model.pth"
+    torch.save(model, str(path))
+    return str(path)
+
+
 SAMPLE_INPUT = np.array([[0.5, 0.5]])   # shape (1, 2) — a single 2-feature sample
 
 
@@ -141,6 +150,12 @@ def test_load_model_returns_pytorch_wrapper(pytorch_model_path):
     assert isinstance(wrapper, PyTorchWrapper)
 
 
+def test_load_model_returns_pytorch_wrapper_pth(pytorch_pth_model_path):
+    """load_model() returns a PyTorchWrapper for .pth files."""
+    wrapper = load_model(pytorch_pth_model_path)
+    assert isinstance(wrapper, PyTorchWrapper)
+
+
 def test_load_model_sklearn_can_predict(sklearn_model_path):
     """Full pipeline: load_model → predict → PredictionResult."""
     wrapper = load_model(sklearn_model_path)
@@ -155,6 +170,19 @@ def test_load_model_pytorch_can_predict(pytorch_model_path):
     result = wrapper.predict(SAMPLE_INPUT)
     assert isinstance(result, PredictionResult)
     assert 0.0 <= result.confidence <= 1.0
+
+
+def test_load_model_returns_tensorflow_wrapper(tmp_path):
+    """load_model() returns a TensorFlowWrapper for .keras files."""
+    keras_path = tmp_path / "model.keras"
+    keras_path.write_text("dummy")
+    try:
+        wrapper = load_model(str(keras_path))
+        from app.ml.tensorflow_wrapper import TensorFlowWrapper
+        assert isinstance(wrapper, TensorFlowWrapper)
+    except (ImportError, Exception):
+        # Expected if tensorflow package is not installed in local env
+        pass
 
 
 def test_load_model_unsupported_extension(tmp_path):

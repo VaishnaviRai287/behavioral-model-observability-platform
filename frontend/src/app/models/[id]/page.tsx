@@ -658,6 +658,82 @@ export default function ModelDashboard() {
           </div>
         )}
       </div>
+
+      {/* Model Architecture Section */}
+      <div className="glass-panel rounded-2xl overflow-hidden mt-6">
+        <div className="px-6 py-4 border-b border-darkBorder flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              Extracted Model Architecture
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Automatically analyzed internal layers and structural topology of the model
+            </p>
+          </div>
+          {model.architecture?.layers && (
+            <span className="text-[10px] bg-teal-500/10 border border-teal-500/30 text-teal-400 font-mono px-2 py-0.5 rounded font-semibold">
+              {model.architecture.layers.length} Layers Found
+            </span>
+          )}
+        </div>
+        
+        {model.architecture?.layers && model.architecture.layers.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-darkBorder">
+              <thead className="bg-slate-900/40">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Layer Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Type / Class
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Configuration Details
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-darkBorder">
+                {model.architecture.layers.map((layer: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-darkHover/10">
+                    <td className="px-6 py-4.5 whitespace-nowrap text-xs font-mono text-white">
+                      {layer.name || `layer_${idx}`}
+                    </td>
+                    <td className="px-6 py-4.5 whitespace-nowrap">
+                      <span className="text-xs bg-slate-950 border border-darkBorder px-2.5 py-1 rounded font-semibold text-teal-400">
+                        {layer.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4.5 text-xs text-slate-300 font-mono">
+                      {layer.details || "N/A"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : model.architecture?.error ? (
+          <div className="py-8 px-6 text-center max-w-md mx-auto">
+            <div className="p-2 w-fit mx-auto rounded-full bg-rose-500/10 text-rose-400 mb-2 border border-rose-500/20">
+              <AlertTriangle className="h-4.5 w-4.5" />
+            </div>
+            <h4 className="text-xs font-semibold text-white mb-0.5">Architecture Analysis Failed</h4>
+            <p className="text-[11px] text-slate-400 font-mono text-left bg-slate-950/40 p-2.5 rounded border border-darkBorder max-h-32 overflow-y-auto">
+              {model.architecture.error}
+            </p>
+          </div>
+        ) : (
+          <div className="py-10 text-center max-w-sm mx-auto">
+            <div className="p-3 w-fit mx-auto rounded-full bg-slate-800 text-slate-500 mb-3 border border-darkBorder">
+              <Compass className="h-5.5 w-5.5" />
+            </div>
+            <h4 className="text-sm font-semibold text-white mb-0.5">No Architecture Extracted</h4>
+            <p className="text-xs text-slate-400">
+              Model architecture extraction is supported for PyTorch and TensorFlow/Keras frameworks.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

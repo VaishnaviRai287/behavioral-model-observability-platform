@@ -28,6 +28,14 @@ export interface ModelDetail {
   created_at: string;
   baseline_mean?: number | null;
   baseline_std?: number | null;
+  architecture?: {
+    layers?: Array<{
+      name?: string;
+      type: string;
+      details?: string;
+    }>;
+    error?: string;
+  } | null;
 }
 
 export interface ModelHealth {

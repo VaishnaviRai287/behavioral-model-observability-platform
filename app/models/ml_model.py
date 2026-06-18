@@ -17,6 +17,7 @@ class MLModel(Base):
     framework: Mapped[str] = mapped_column(String(50), nullable=False)
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
     input_schema: Mapped[dict] = mapped_column(JSON, nullable=False)
+    architecture: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="uploaded"
     )

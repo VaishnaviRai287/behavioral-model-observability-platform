@@ -69,12 +69,21 @@ then 45 drifted predictions. Watch the novelty timeline at
 Alternatively, use the **Simulate Drift Traffic** button directly inside
 the model dashboard — no CLI needed.
 
+## Run the test suite
+
+Run the pytest suite locally using an in-memory SQLite database without needing to spin up PostgreSQL or Docker:
+
+```bash
+TEST_DATABASE_URL=sqlite:///./test.db .venv/bin/pytest
+```
+
 ---
 
 ## What's inside
 
 **V1 — Model Autopsy**
-- Multi-framework model ingestion (sklearn, PyTorch, ONNX) with automatic framework detection
+- Multi-framework model ingestion with automatic framework detection (**scikit-learn, PyTorch `.pt`/`.pth`, TensorFlow/Keras `.h5`/`.keras`/`SavedModel`, ONNX**)
+- Automatic model architecture extraction and visual layer configuration analysis
 - Latin Hypercube Sampling probe sweep across the full feature space
 - Behavioral fingerprint: confidence histogram, entropy, uncertainty rate, class bias
 - Fingerprint comparator (Wasserstein distance) for detecting baseline shift
@@ -83,7 +92,7 @@ the model dashboard — no CLI needed.
 - FAISS-indexed latent space monitor — detects combinatorial novelty at inference time using k-NN distance against probe activations
 - KS + PSI statistical drift detection per feature against probe baseline
 - Alert engine with `LATENT_NOVELTY` and `FEATURE_DRIFT` alert types, severity escalation, and resolve workflow
-- React dashboard with live polling — novelty score timeline, per-feature drift bar chart, active alert management, behavioral fingerprint viewer
+- React dashboard with live polling — novelty timeline, per-feature drift bar chart, active alert management, behavioral fingerprint viewer, and extracted model architecture topology view
 
 ---
 
@@ -92,7 +101,7 @@ the model dashboard — no CLI needed.
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI, SQLAlchemy, Alembic, PostgreSQL |
-| ML | scikit-learn, PyTorch, ONNX Runtime, FAISS, scipy, NumPy |
+| ML | scikit-learn, PyTorch, TensorFlow/Keras, ONNX Runtime, FAISS, scipy, NumPy |
 | Frontend | Next.js 14, Tailwind CSS, Recharts |
 | Infra | Docker Compose, GitHub Actions CI |
 
@@ -102,15 +111,16 @@ the model dashboard — no CLI needed.
 
 ```
 app/
-├── ml/              # model wrappers — sklearn, PyTorch, ONNX
+├── ml/              # model wrappers — sklearn, PyTorch, TensorFlow, ONNX
 ├── probing/         # LHS sampler + forward-pass probe engine
 ├── monitoring/      # FAISS indexer, novelty scorer, drift detector, alert engine
 ├── services/        # orchestration layer for each domain
-└── routers/         # FastAPI route handlers
-
+├── routers/         # FastAPI route handlers
+├── utils/           # framework detector & architecture extractor utilities
+│
 frontend/            # Next.js 14 dashboard (App Router)
 alembic/             # database migrations
-tests/               # pytest suite (71 tests)
+tests/               # pytest suite (77 tests)
 demo/                # sample model + demo script
 ```
 
@@ -119,7 +129,7 @@ demo/                # sample model + demo script
 ## API
 
 ```
-POST   /api/v1/models                              register model + auto-detect framework
+POST   /api/v1/models                              register model + auto-detect framework & extract architecture
 GET    /api/v1/models                              list all registered models
 POST   /api/v1/models/{id}/probe                   run LHS probe sweep
 POST   /api/v1/probes/{id}/fingerprint             compile behavioral fingerprint + FAISS index
@@ -135,6 +145,6 @@ Full interactive docs at **http://localhost:8000/docs** after `docker-compose up
 ---
 
 
-- [x] V1 — Model autopsy: multi-framework ingestion, LHS probing, behavioral fingerprinting
+- [x] V1 — Model autopsy: multi-framework ingestion, LHS probing, behavioral fingerprinting, auto architecture extraction
 - [x] V2 — Latent space monitoring: FAISS novelty detection, KS/PSI drift detection, alert engine, React dashboard
 - [ ] V3 — Streaming ingestion via Kafka, per-cohort drift segmentation, fingerprint versioning

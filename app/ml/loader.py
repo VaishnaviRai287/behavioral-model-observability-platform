@@ -29,5 +29,8 @@ def load_model(file_path: str) -> BaseModelWrapper:
         return PyTorchWrapper(file_path)
     elif framework == "onnx":
         return ONNXWrapper(file_path)
+    elif framework == "tensorflow":
+        from app.ml.tensorflow_wrapper import TensorFlowWrapper
+        return TensorFlowWrapper(file_path)
     else:
         raise ValueError(f"Unsupported framework: {framework}")

@@ -105,6 +105,13 @@ function ModelRow({
         </span>
       );
     }
+    if (fwLower.includes("tensorflow") || fwLower.includes("keras")) {
+      return (
+        <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-medium">
+          TensorFlow
+        </span>
+      );
+    }
     return (
       <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs px-2.5 py-0.5 rounded-full font-medium">
         ONNX
@@ -617,13 +624,13 @@ export default function ModelsRegistry() {
                   {/* Model File Input */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Model File (.pkl, .joblib, .pt, .onnx)
+                      Model File (.pkl, .joblib, .pt, .pth, .onnx, .h5, .keras, .zip, .tar.gz)
                     </label>
                     <div className="relative border-2 border-dashed border-darkBorder rounded-xl p-6 flex flex-col items-center justify-center bg-slate-900/30 hover:bg-slate-900/50 transition-all cursor-pointer">
                       <input
                         type="file"
                         required
-                        accept=".pkl,.joblib,.pt,.onnx"
+                        accept=".pkl,.joblib,.pt,.pth,.onnx,.h5,.keras,.zip,.tar.gz,.tgz"
                         onChange={(e) => {
                           if (e.target.files && e.target.files.length > 0) {
                             setUploadFile(e.target.files[0]);

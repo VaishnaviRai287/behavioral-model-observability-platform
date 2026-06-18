@@ -46,18 +46,43 @@ def upload_model(
     try:
         with open(save_path, "wb") as dest:
             shutil.copyfileobj(file.file, dest)
+            
+        # If it's a zip/tar archive, extract it
+        if suffix == ".zip":
+            import zipfile
+            extract_dir = save_path.with_name(f"{model_id}_extracted")
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(save_path, 'r') as zf:
+                zf.extractall(extract_dir)
+        elif suffix in (".tar.gz", ".tgz"):
+            import tarfile
+            extract_dir = save_path.with_name(f"{model_id}_extracted")
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(save_path, 'r:*') as tf:
+                tf.extractall(extract_dir)
     except Exception as e:
+        save_path.unlink(missing_ok=True)
+        extracted_dir = save_path.with_name(f"{model_id}_extracted")
+        if extracted_dir.exists() and extracted_dir.is_dir():
+            shutil.rmtree(extracted_dir)
         raise HTTPException(
-            status_code=500, detail=f"Failed to save model file: {e}"
+            status_code=500, detail=f"Failed to save or extract model file: {e}"
         )
 
     # Detect the framework by inspecting the saved file
     try:
         framework = detect_framework(str(save_path))
     except ValueError as e:
-        # Clean up the file we saved before failing
+        # Clean up the file and extracted directory we saved before failing
         save_path.unlink(missing_ok=True)
+        extracted_dir = save_path.with_name(f"{model_id}_extracted")
+        if extracted_dir.exists() and extracted_dir.is_dir():
+            shutil.rmtree(extracted_dir)
         raise HTTPException(status_code=422, detail=str(e))
+
+    # Extract model architecture
+    from app.utils.architecture_extractor import extract_architecture
+    architecture = extract_architecture(str(save_path), framework)
 
     # Create the database record
     db_model = MLModel(
@@ -66,6 +91,7 @@ def upload_model(
         framework=framework,
         file_path=str(save_path),
         input_schema=schema_dict,
+        architecture=architecture,
         status="ready",
     )
     db.add(db_model)
@@ -109,6 +135,11 @@ def delete_model(db: Session, model_id: str) -> dict:
     # Delete the file from disk
     file_path = Path(model.file_path)
     file_path.unlink(missing_ok=True)
+
+    # Also delete extracted directory if it exists
+    extracted_dir = file_path.with_name(f"{model.id}_extracted")
+    if extracted_dir.exists() and extracted_dir.is_dir():
+        shutil.rmtree(extracted_dir)
 
     # Evict from model cache so stale wrapper isn't served after deletion
     invalidate_model_cache(model.file_path)

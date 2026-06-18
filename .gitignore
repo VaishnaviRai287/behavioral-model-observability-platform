@@ -16,8 +16,14 @@ __pycache__/
 uploads/
 *.pkl
 *.pt
+*.pth
 *.onnx
 *.joblib
+*.keras
+*.h5
+*.zip
+*.tar.gz
+*.tgz
 
 # ── Demo artefacts ────────────────────────────────────────────────────────────
 # The demo script generates a local model file; exclude it
