@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.middleware.logging import RequestLoggingMiddleware
-from app.routers import models, probes, fingerprints, predictions, health, alerts, dataset_health, performance, drift_analysis
+from app.routers import models, probes, fingerprints, predictions, health, alerts, dataset_health, performance, drift_analysis, explainability
 
 
 
@@ -42,6 +42,7 @@ app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(dataset_health.router, prefix="/api/v1")
 app.include_router(performance.router, prefix="/api/v1")
 app.include_router(drift_analysis.router, prefix="/api/v1")
+app.include_router(explainability.router, prefix="/api/v1")
 app.include_router(health.router)  # No prefix for health endpoints
 
 

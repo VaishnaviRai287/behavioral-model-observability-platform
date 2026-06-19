@@ -84,6 +84,10 @@ def upload_model(
     from app.utils.architecture_extractor import extract_architecture
     architecture = extract_architecture(str(save_path), framework)
 
+    # Generate unique signature
+    from app.utils.signature_generator import generate_model_signature
+    signature = generate_model_signature(str(save_path), framework, architecture, schema_dict)
+
     # Create the database record
     db_model = MLModel(
         id=model_id,
@@ -92,6 +96,7 @@ def upload_model(
         file_path=str(save_path),
         input_schema=schema_dict,
         architecture=architecture,
+        signature=signature,
         status="ready",
     )
     db.add(db_model)

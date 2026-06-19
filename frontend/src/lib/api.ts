@@ -28,6 +28,7 @@ export interface ModelDetail {
   created_at: string;
   baseline_mean?: number | null;
   baseline_std?: number | null;
+  signature?: string | null;
   architecture?: {
     layers?: Array<{
       name?: string;
@@ -86,6 +87,28 @@ export interface UncertaintyRegion {
   mean_confidence: number;
   sample_density: number;
   variance: number;
+}
+
+export interface GlobalExplainability {
+  model_id: string;
+  feature_importance: Array<{
+    feature: string;
+    importance: number;
+  }>;
+}
+
+export interface PredictionBreakdown {
+  feature: string;
+  value: any;
+  contribution: number;
+}
+
+export interface PredictionExplanation {
+  prediction_id: string;
+  predicted_class: number;
+  base_value: number;
+  prediction_value: number;
+  breakdown: PredictionBreakdown[];
 }
 
 // Global API Helper client using fetch
@@ -207,6 +230,14 @@ class ApiClient {
 
   getDriftAnalysis(modelId: string, nRecent: number = 100): Promise<any> {
     return this.request<any>(`/api/models/${modelId}/drift-analysis?n_recent=${nRecent}`);
+  }
+
+  getGlobalExplainability(modelId: string): Promise<GlobalExplainability> {
+    return this.request<GlobalExplainability>(`/api/models/${modelId}/explainability/global`);
+  }
+
+  getPredictionExplanation(modelId: string, predictionId: string): Promise<PredictionExplanation> {
+    return this.request<PredictionExplanation>(`/api/models/${modelId}/predictions/${predictionId}/explain`);
   }
 }
 

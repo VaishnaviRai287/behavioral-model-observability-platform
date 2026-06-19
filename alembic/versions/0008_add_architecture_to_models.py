@@ -1,7 +1,7 @@
 """add architecture to models
 
-Revision ID: f671a100beef
-Revises: d32c544e3a89
+Revision ID: 0008
+Revises: 0007
 Create Date: 2026-06-19 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f671a100beef'
-down_revision: Union[str, Sequence[str], None] = 'd32c544e3a89'
+revision: str = '0008'
+down_revision: Union[str, Sequence[str], None] = '0007'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -41,6 +41,7 @@ import {
   Heart,
   Cpu,
   Database,
+  Sparkles,
 } from "lucide-react";
 
 export default function ModelDashboard() {
@@ -58,7 +59,7 @@ export default function ModelDashboard() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   // Observability Enhancement States
-  const [activeTab, setActiveTab] = useState<"monitoring" | "graph" | "health" | "performance" | "drift_analysis">("monitoring");
+  const [activeTab, setActiveTab] = useState<"monitoring" | "graph" | "health" | "performance" | "drift_analysis" | "explainability">("monitoring");
   const [datasetHealth, setDatasetHealth] = useState<any>(null);
   const [datasetHealthLoading, setDatasetHealthLoading] = useState(false);
   const [performanceProfile, setPerformanceProfile] = useState<any>(null);
@@ -67,6 +68,13 @@ export default function ModelDashboard() {
   const [driftLoading, setDriftLoading] = useState(false);
   const [selectedLayer, setSelectedLayer] = useState<any>(null);
   const [selectedDriftFeature, setSelectedDriftFeature] = useState<string>("");
+
+  // Explainability States
+  const [globalExplain, setGlobalExplain] = useState<any>(null);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [selectedPredId, setSelectedPredId] = useState<string | null>(null);
+  const [predExplanation, setPredExplanation] = useState<any>(null);
+  const [explanationLoading, setExplanationLoading] = useState(false);
 
   // Lazy loading API data based on active tab
   React.useEffect(() => {
@@ -91,7 +99,30 @@ export default function ModelDashboard() {
         .catch(console.error)
         .finally(() => setDriftLoading(false));
     }
-  }, [activeTab, modelId, datasetHealth, performanceProfile, driftAnalysis]);
+    if (activeTab === "explainability") {
+      if (!globalExplain) {
+        setGlobalLoading(true);
+        api.getGlobalExplainability(modelId)
+          .then(setGlobalExplain)
+          .catch(console.error)
+          .finally(() => setGlobalLoading(false));
+      }
+      if (predictions && predictions.length > 0 && !selectedPredId) {
+        setSelectedPredId(predictions[0].id);
+      }
+    }
+  }, [activeTab, modelId, datasetHealth, performanceProfile, driftAnalysis, globalExplain, predictions, selectedPredId]);
+
+  // Fetch local prediction explanation when selection changes
+  React.useEffect(() => {
+    if (selectedPredId) {
+      setExplanationLoading(true);
+      api.getPredictionExplanation(modelId, selectedPredId)
+        .then(setPredExplanation)
+        .catch(console.error)
+        .finally(() => setExplanationLoading(false));
+    }
+  }, [selectedPredId, modelId]);
 
   // Simulation States
   const [isSimulating, setIsSimulating] = useState(false);
@@ -726,6 +757,226 @@ export default function ModelDashboard() {
     );
   };
 
+  const renderExplainability = () => {
+    if (globalLoading) {
+      return (
+        <div className="h-64 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
+          Calculating global feature importances via Kernel SHAP...
+        </div>
+      );
+    }
+
+    const globalData = globalExplain?.feature_importance || [];
+    const selectedPredLog = predictions.find(p => p.id === selectedPredId);
+    const breakdown = predExplanation?.breakdown || [];
+    
+    let summaryText = "";
+    if (predExplanation && selectedPredLog) {
+      const mostPos = breakdown[0]?.contribution > 0 ? breakdown[0] : null;
+      const mostNeg = [...breakdown].reverse().find((item: any) => item.contribution < 0);
+      
+      summaryText = `The model predicted Class ${selectedPredLog.predicted_class} with ${(selectedPredLog.confidence * 100).toFixed(1)}% confidence. The baseline expected output was ${(predExplanation.base_value * 100).toFixed(1)}%. `;
+      if (mostPos) {
+        summaryText += `Feature "${mostPos.feature}" (value: ${mostPos.value}) had the strongest positive influence, contributing +${(mostPos.contribution * 100).toFixed(1)}% confidence. `;
+      }
+      if (mostNeg) {
+        summaryText += `Feature "${mostNeg.feature}" (value: ${mostNeg.value}) had the strongest negative influence, subtracting ${Math.abs(mostNeg.contribution * 100).toFixed(1)}% confidence.`;
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Global Explainability Card */}
+          <div className="glass-panel p-5 rounded-2xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Global Feature Importance (SHAP)
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Mean absolute SHAP values calculated dynamically using Kernel SHAP over reference background runs
+              </p>
+            </div>
+            
+            {globalData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={globalData}
+                    margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      stroke="#475569"
+                      fontSize={9}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="feature"
+                      stroke="#475569"
+                      fontSize={9}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#161B2E",
+                        borderColor: "#1F293D",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        color: "#f1f5f9",
+                      }}
+                    />
+                    <Bar dataKey="importance" fill="url(#tealCyanGradient)" radius={[0, 4, 4, 0]}>
+                      {globalData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill="url(#tealCyanGradient)" />
+                      ))}
+                    </Bar>
+                    <defs>
+                      <linearGradient id="tealCyanGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#0D9488" />
+                        <stop offset="100%" stopColor="#22D3EE" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 rounded-xl border border-darkBorder/40">
+                <Sparkles className="h-8 w-8 text-slate-500 mb-2 animate-pulse" />
+                <span className="text-xs text-slate-400 font-medium">No background baseline metrics found</span>
+                <span className="text-[10px] text-slate-500 mt-1 max-w-[240px]">
+                  Ensure successful model baseline probe results exist to initialize SHAP coalitions.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Local Prediction Explanation Card */}
+          <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Prediction Explanation (Local SHAP)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Feature contribution attribution towards the confidence of a specific output class
+                  </p>
+                </div>
+
+                {predictions.length > 0 && (
+                  <select
+                    value={selectedPredId || ""}
+                    onChange={(e) => setSelectedPredId(e.target.value)}
+                    className="bg-slate-950 border border-darkBorder rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-teal-500/50 max-w-xs font-mono"
+                  >
+                    {predictions.map((p, idx) => (
+                      <option key={p.id} value={p.id}>
+                        {idx + 1}. Class {p.predicted_class} ({new Date(p.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {explanationLoading ? (
+                <div className="h-56 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
+                  Solving Kernel SHAP coalition weights...
+                </div>
+              ) : predExplanation ? (
+                <div className="space-y-4">
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={breakdown}
+                        margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          stroke="#475569"
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="feature"
+                          stroke="#475569"
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#161B2E",
+                            borderColor: "#1F293D",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            color: "#f1f5f9",
+                          }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value > 0 ? '+' : ''}${value}`,
+                            `Contribution (Val: ${props.payload.value})`
+                          ]}
+                        />
+                        <Bar dataKey="contribution" radius={[4, 4, 4, 4]}>
+                          {breakdown.map((entry: any, index: number) => {
+                            const isPositive = entry.contribution > 0;
+                            return (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={isPositive ? "#EF4444" : "#10B981"} 
+                              />
+                            );
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="p-3 bg-slate-950/50 border border-darkBorder rounded-xl text-xs leading-relaxed text-slate-300">
+                    {summaryText}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-slate-500 text-xs">
+                  Select a recent prediction class from the selector to break down feature attributions.
+                </div>
+              )}
+            </div>
+
+            {predExplanation && !explanationLoading && (
+              <div className="border-t border-darkBorder/60 pt-4 mt-2">
+                <div className="flex items-center justify-between text-xs font-semibold mb-2">
+                  <span className="text-slate-400">Base Expected Value: <strong className="text-slate-300 font-mono">{(predExplanation.base_value * 100).toFixed(1)}%</strong></span>
+                  <span className="text-teal-400">Predicted Confidence: <strong className="font-mono">{(predExplanation.prediction_value * 100).toFixed(1)}%</strong></span>
+                </div>
+                <div className="relative h-2 bg-slate-900 rounded-full overflow-hidden border border-darkBorder/40">
+                  <div 
+                    className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10" 
+                    style={{ left: `${predExplanation.base_value * 100}%` }}
+                    title="Base expected outcome value"
+                  />
+                  <div 
+                    className="bg-teal-500 h-full transition-all duration-300" 
+                    style={{ width: `${predExplanation.prediction_value * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Back button & title */}
@@ -777,16 +1028,36 @@ export default function ModelDashboard() {
             </button>
           )}
 
-          {/* Link to Fingerprint Page */}
-          {fingerprints && fingerprints.length > 0 && (
-            <Link
-              href={`/models/${model.id}/fingerprint`}
-              className="flex items-center gap-1.5 px-4.5 py-2.5 bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:border-teal-500/50 rounded-xl text-sm font-medium transition-all"
-            >
-              <span>View Behavioral Fingerprint</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          )}
+          {/* Glowing Fingerprint Graphic card */}
+          <Link
+            href={`/models/${model.id}/fingerprint`}
+            className="relative flex items-center gap-3.5 pl-4 pr-5 py-2.5 bg-slate-900 border border-teal-500/20 hover:border-teal-500/50 hover:bg-slate-850 rounded-xl transition-all duration-300 group overflow-hidden shadow-lg shadow-teal-500/5 select-none"
+          >
+            {/* Animated Laser Scan Bar */}
+            <div className="absolute top-2 left-4 right-4 h-[1.5px] bg-teal-400/80 shadow-[0_0_8px_rgba(20,184,166,0.8)] scan-line pointer-events-none" />
+            
+            <div className="relative p-1.5 rounded-lg bg-teal-950/60 border border-teal-500/20 text-teal-400 group-hover:text-teal-350 transition-colors">
+              <svg className="w-8 h-8 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22v-4" />
+                <path d="M14 14.87a4 4 0 0 0-4 0" />
+                <path d="M12 2a10 10 0 0 0-10 10c0 1.25.25 2.44.71 3.53" />
+                <path d="M22 12A10 10 0 0 0 12 2" />
+                <path d="M8 12a4 4 0 0 1 8 0" />
+                <path d="M12 6a6 6 0 0 0-6 6c0 1.38.47 2.66 1.25 3.67" />
+                <path d="M18.75 15.67A6 6 0 0 0 18 12" />
+                <path d="M12 18a2 2 0 0 0 2-2c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1a2 2 0 0 0 2 2z" />
+              </svg>
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] text-teal-400 uppercase tracking-widest font-mono font-bold group-hover:text-teal-350">
+                Biometric Signature
+              </span>
+              <span className="text-xs font-semibold text-white mt-0.5 font-mono">
+                {model.signature ? `${model.signature.substring(0, 14)}` : "Extracting..."}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-teal-400 transition-colors ml-1" />
+          </Link>
         </div>
       </div>
 
@@ -855,6 +1126,7 @@ export default function ModelDashboard() {
           { id: "health", label: "Dataset Health", icon: Database },
           { id: "performance", label: "Inference Performance", icon: Cpu },
           { id: "drift_analysis", label: "Drift Analysis", icon: AlertTriangle },
+          { id: "explainability", label: "Explainability (SHAP)", icon: Sparkles },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1267,6 +1539,7 @@ export default function ModelDashboard() {
       {activeTab === "health" && renderDatasetHealth()}
       {activeTab === "performance" && renderPerformanceProfile()}
       {activeTab === "drift_analysis" && renderDriftAnalysis()}
+      {activeTab === "explainability" && renderExplainability()}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 """add faiss tables
 
 Revision ID: <keep_generated_id>
-Revises: b14cacc1d34c
+Revises: 0004
 Create Date: 2026-06-16 21:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e477e19bc1b3'
-down_revision: Union[str, None] = 'b14cacc1d34c'
+revision: str = '0005'
+down_revision: Union[str, None] = '0004'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

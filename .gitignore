@@ -60,3 +60,7 @@ build/
 # Old space-named files (docs/phases , docs/prd v1, etc.) are not tracked.
 # New canonical names: docs/v1-phases.md  docs/v1-prd.md  docs/v2-spec.md  docs/v2-phases.md
 ./docs 
+
+# ── Local dev scratch & test models ───────────────────────────────────────────
+scratch/
+test_models/

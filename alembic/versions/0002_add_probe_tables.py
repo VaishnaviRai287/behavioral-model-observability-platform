@@ -1,7 +1,7 @@
 """add probe tables
 
-Revision ID: a24834d38769
-Revises: 31a0f7544bd1
+Revision ID: 0002
+Revises: 0001
 Create Date: 2026-06-14 23:28:40.915293
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a24834d38769'
-down_revision: Union[str, Sequence[str], None] = '31a0f7544bd1'
+revision: str = '0002'
+down_revision: Union[str, Sequence[str], None] = '0001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

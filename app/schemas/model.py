@@ -37,6 +37,7 @@ class ModelDetailResponse(BaseModel):
     file_path: str
     input_schema: dict[str, Any]
     architecture: dict[str, Any] | None = None
+    signature: str | None = None
     status: str
     created_at: datetime
     baseline_mean: float | None = None

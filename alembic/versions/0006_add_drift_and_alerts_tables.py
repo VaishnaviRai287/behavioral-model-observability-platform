@@ -1,7 +1,7 @@
 """add drift and alerts tables
 
-Revision ID: cc574da0ddd2
-Revises: e477e19bc1b3
+Revision ID: 0006
+Revises: 0005
 Create Date: 2026-06-17 03:25:48.202512
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'cc574da0ddd2'
-down_revision: Union[str, Sequence[str], None] = 'e477e19bc1b3'
+revision: str = '0006'
+down_revision: Union[str, Sequence[str], None] = '0005'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

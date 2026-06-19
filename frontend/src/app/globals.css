@@ -50,3 +50,19 @@
 .pulse-glow-teal {
   animation: pulse-glow 2s infinite;
 }
+
+@keyframes scan-animation {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(44px);
+    opacity: 0.9;
+  }
+}
+
+.scan-line {
+  animation: scan-animation 2.5s ease-in-out infinite;
+}
+

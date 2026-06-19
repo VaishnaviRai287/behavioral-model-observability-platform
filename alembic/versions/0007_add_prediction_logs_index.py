@@ -1,7 +1,7 @@
 """add prediction logs index
 
-Revision ID: d32c544e3a89
-Revises: cc574da0ddd2
+Revision ID: 0007
+Revises: 0006
 Create Date: 2026-06-17 18:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd32c544e3a89'
-down_revision: Union[str, Sequence[str], None] = 'cc574da0ddd2'
+revision: str = '0007'
+down_revision: Union[str, Sequence[str], None] = '0006'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
