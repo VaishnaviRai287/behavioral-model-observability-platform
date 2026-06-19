@@ -195,6 +195,19 @@ class ApiClient {
   getUncertaintyRegions(fingerprintId: string): Promise<UncertaintyRegion[]> {
     return this.request<UncertaintyRegion[]>(`/api/fingerprints/${fingerprintId}/uncertainty-regions`);
   }
+
+  // Observability Additions
+  getDatasetHealth(modelId: string): Promise<any> {
+    return this.request<any>(`/api/models/${modelId}/dataset-health`);
+  }
+
+  getPerformanceProfile(modelId: string): Promise<any> {
+    return this.request<any>(`/api/models/${modelId}/performance`);
+  }
+
+  getDriftAnalysis(modelId: string, nRecent: number = 100): Promise<any> {
+    return this.request<any>(`/api/models/${modelId}/drift-analysis?n_recent=${nRecent}`);
+  }
 }
 
 export const api = new ApiClient();

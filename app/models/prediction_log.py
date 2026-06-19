@@ -43,6 +43,10 @@ class PredictionLog(Base):
     # How long the prediction took, in milliseconds
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
 
+    # Performance Profiling Metrics
+    cpu_utilization: Mapped[float | None] = mapped_column(Float, nullable=True)
+    memory_mb: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # V2-A Latent Space Fields
     faiss_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
     novelty_flag: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)

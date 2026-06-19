@@ -4,6 +4,7 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV API_URL=http://api:8000
 RUN npm run build
 
 FROM node:18-alpine AS runner

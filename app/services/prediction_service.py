@@ -94,11 +94,25 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
     wrapper = get_cached_wrapper(model.file_path)
     input_array = np.array([input_vector])   # shape (1, n_features)
 
+    start_cpu = time.process_time()
     start_time = time.perf_counter()
     result, activation = wrapper.predict_with_activations(input_array)
     end_time = time.perf_counter()
+    end_cpu = time.process_time()
 
     latency_ms = (end_time - start_time) * 1000   # convert seconds → milliseconds
+    wall_time = end_time - start_time
+    cpu_time = end_cpu - start_cpu
+    cpu_utilization = (cpu_time / wall_time * 100) if wall_time > 0 else 0.0
+
+    # Memory usage mapping (Darwin in bytes, Linux in kilobytes)
+    import sys
+    import resource
+    ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == 'darwin':
+        memory_mb = ru_maxrss / (1024 * 1024)
+    else:
+        memory_mb = ru_maxrss / 1024
 
     # ── Novelty scoring ───────────────────────────────────────────────────────
     from app.monitoring.novelty_scorer import score_novelty
@@ -113,6 +127,8 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
         confidence=result.confidence,
         raw_output=result.raw_output,
         latency_ms=latency_ms,
+        cpu_utilization=cpu_utilization,
+        memory_mb=memory_mb,
         faiss_distance=faiss_distance,
         novelty_flag=novelty_flag,
     )

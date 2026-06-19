@@ -14,4 +14,4 @@ pytest
 httpx
 aiosqlite
 faiss-cpu
-tensorflow-cpu
+tensorflow
