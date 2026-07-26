@@ -173,13 +173,24 @@ def test_load_model_pytorch_can_predict(pytorch_model_path):
 
 
 def test_load_model_returns_tensorflow_wrapper(tmp_path):
-    """load_model() returns a TensorFlowWrapper for .keras files."""
-    pytest.importorskip("tensorflow")
-    keras_path = tmp_path / "model.keras"
-    keras_path.write_text("dummy")
+    """load_model() returns a TensorFlowWrapper for .keras files, and it can predict."""
+    tf = pytest.importorskip("tensorflow")
     from app.ml.tensorflow_wrapper import TensorFlowWrapper
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(2,)),
+        tf.keras.layers.Dense(4, activation="relu"),
+        tf.keras.layers.Dense(2, activation="softmax"),
+    ])
+    keras_path = tmp_path / "model.keras"
+    model.save(str(keras_path))
+
     wrapper = load_model(str(keras_path))
     assert isinstance(wrapper, TensorFlowWrapper)
+
+    result = wrapper.predict(SAMPLE_INPUT)
+    assert isinstance(result, PredictionResult)
+    assert 0.0 <= result.confidence <= 1.0
 
 
 def test_load_model_unsupported_extension(tmp_path):

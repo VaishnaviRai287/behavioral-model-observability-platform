@@ -1,5 +1,7 @@
 # ModelMesh
 
+[![CI](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml/badge.svg)](https://github.com/VaishnaviRai287/behavioral-model-observability-platform/actions/workflows/test.yml)
+
 A self-hosted machine learning model behavioral analysis and observability platform. Registers trained models, probes their decision boundary using Latin Hypercube Sampling (LHS), builds a behavioral fingerprint, and monitors live inference for combinatorial novelty, feature drift, and explanation attribution. It uses the model's internal geometry, not just its outputs.
 
 ---
