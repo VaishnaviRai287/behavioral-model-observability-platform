@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # flips this back on to exercise the real gate.
     disable_auth: bool = bool(os.getenv("TEST_DATABASE_URL"))
 
+    # Deployer-only secret gating the "lost your key" reset flow (app/routers/api_keys.py).
+    # Unset by default, which disables that endpoint entirely — a reset mechanism that
+    # accepts no proof of identity would let anyone with the URL revoke other users' keys.
+    admin_reset_secret: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

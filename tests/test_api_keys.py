@@ -131,3 +131,69 @@ def test_key_hash_never_stores_plaintext(client):
     row = db.query(ApiKey).filter(ApiKey.id == created["id"]).first()
     assert row.key_hash != created["key"]
     db.close()
+
+
+# Lost-key reset (admin-secret-gated, scoped to one name)
+
+def test_reset_disabled_without_admin_secret(client):
+    """With no ADMIN_RESET_SECRET configured, the endpoint doesn't exist at all."""
+    client.post("/api/v1/api-keys", json={"name": "alice"})
+    resp = client.post(
+        "/api/v1/api-keys/reset",
+        json={"name": "alice", "admin_secret": "whatever"},
+    )
+    assert resp.status_code == 404
+
+
+def test_reset_rejects_wrong_secret(client):
+    settings.admin_reset_secret = "correct-horse-battery-staple"
+    try:
+        client.post("/api/v1/api-keys", json={"name": "alice"})
+        resp = client.post(
+            "/api/v1/api-keys/reset",
+            json={"name": "alice", "admin_secret": "wrong-secret"},
+        )
+        assert resp.status_code == 401
+    finally:
+        settings.admin_reset_secret = None
+
+
+def test_reset_replaces_only_the_named_key(client):
+    """Resetting alice's key revokes only alice's key — bob's is untouched."""
+    settings.admin_reset_secret = "correct-horse-battery-staple"
+    try:
+        alice = client.post("/api/v1/api-keys", json={"name": "alice"}).json()
+        bob = client.post(
+            "/api/v1/api-keys",
+            json={"name": "bob"},
+            headers={"Authorization": f"Bearer {alice['key']}"},
+        ).json()
+
+        reset_resp = client.post(
+            "/api/v1/api-keys/reset",
+            json={"name": "alice", "admin_secret": "correct-horse-battery-staple"},
+        )
+        assert reset_resp.status_code == 201
+        new_alice = reset_resp.json()
+        assert new_alice["name"] == "alice"
+        assert new_alice["key"] != alice["key"]
+
+        # Alice's old key no longer works.
+        old_alice_resp = client.get(
+            "/api/v1/models", headers={"Authorization": f"Bearer {alice['key']}"}
+        )
+        assert old_alice_resp.status_code == 401
+
+        # Alice's new key works.
+        new_alice_resp = client.get(
+            "/api/v1/models", headers={"Authorization": f"Bearer {new_alice['key']}"}
+        )
+        assert new_alice_resp.status_code == 200
+
+        # Bob's key is completely unaffected.
+        bob_resp = client.get(
+            "/api/v1/models", headers={"Authorization": f"Bearer {bob['key']}"}
+        )
+        assert bob_resp.status_code == 200
+    finally:
+        settings.admin_reset_secret = None

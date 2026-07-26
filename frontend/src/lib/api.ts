@@ -145,6 +145,20 @@ export function clearStoredApiKey(): void {
   window.localStorage.removeItem(API_KEY_STORAGE_KEY);
 }
 
+// The name a key was registered under — lets this same browser prefill the
+// "lost your key?" reset flow later without the user having to remember it.
+const KEY_OWNER_NAME_STORAGE_KEY = 'modelmesh_key_owner_name';
+
+export function getStoredKeyOwnerName(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(KEY_OWNER_NAME_STORAGE_KEY);
+}
+
+export function setStoredKeyOwnerName(name: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(KEY_OWNER_NAME_STORAGE_KEY, name);
+}
+
 // A freshly-created key needs to survive the registry page's error->success
 // remount (the "no key yet" error view and the loaded view are different React
 // trees) so the user actually gets to see/copy it once, rather than it flashing
@@ -321,6 +335,13 @@ class ApiClient {
 
   revokeApiKey(id: string): Promise<ApiKeySummary> {
     return this.request<ApiKeySummary>(`/api/api-keys/${id}`, { method: 'DELETE' });
+  }
+
+  resetApiKey(name: string, adminSecret: string): Promise<ApiKeyCreated> {
+    return this.request<ApiKeyCreated>('/api/api-keys/reset', {
+      method: 'POST',
+      body: JSON.stringify({ name, admin_secret: adminSecret }),
+    });
   }
 }
 

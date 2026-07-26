@@ -12,6 +12,8 @@ import {
   getPendingKeyReveal,
   setPendingKeyReveal,
   clearPendingKeyReveal,
+  getStoredKeyOwnerName,
+  setStoredKeyOwnerName,
 } from "@/lib/api";
 import {
   Search,
@@ -42,28 +44,66 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualKey, setManualKey] = useState("");
+  const [name, setName] = useState("");
+  const [showLostKey, setShowLostKey] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
+  const [lostKeyError, setLostKeyError] = useState<string | null>(null);
   const inFlightRef = React.useRef(false);
 
   React.useEffect(() => {
     setStoredKeyState(getStoredApiKey());
+    setName(getStoredKeyOwnerName() || "");
     const pending = getPendingKeyReveal();
     if (pending) setNewlyCreatedKey(pending);
   }, []);
 
   const handleGenerate = async () => {
     if (inFlightRef.current) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Enter your name first — it's how a lost key gets matched back to you later.");
+      return;
+    }
     inFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createApiKey("dashboard");
+      const created = await api.createApiKey(trimmedName);
       setStoredApiKey(created.key);
       setStoredKeyState(created.key);
+      setStoredKeyOwnerName(trimmedName);
       setPendingKeyReveal(created.key);
       setNewlyCreatedKey(created.key);
       onKeyChange?.();
     } catch (err: any) {
       setError(err.message || "Failed to create API key.");
+    } finally {
+      inFlightRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const handleLostKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inFlightRef.current) return;
+    const trimmedName = name.trim();
+    const trimmedSecret = adminSecret.trim();
+    if (!trimmedName || !trimmedSecret) return;
+    inFlightRef.current = true;
+    setBusy(true);
+    setLostKeyError(null);
+    try {
+      const created = await api.resetApiKey(trimmedName, trimmedSecret);
+      setStoredApiKey(created.key);
+      setStoredKeyState(created.key);
+      setStoredKeyOwnerName(trimmedName);
+      setPendingKeyReveal(created.key);
+      setNewlyCreatedKey(created.key);
+      setShowLostKey(false);
+      setAdminSecret("");
+      onKeyChange?.();
+    } catch (err: any) {
+      setLostKeyError(err.message || "Failed to reset API key.");
     } finally {
       inFlightRef.current = false;
       setBusy(false);
@@ -76,7 +116,7 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createApiKey("dashboard");
+      const created = await api.createApiKey(getStoredKeyOwnerName() || "dashboard");
       const previousKey = storedKey;
       setStoredApiKey(created.key);
       setStoredKeyState(created.key);
@@ -180,16 +220,24 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
 
   return (
     <div className="utility-panel-amber space-y-3 shadow-[4px_4px_0px_#211C19]">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="badge-research-finding">AUTHENTICATION REQUIRED</span>
-          <p className="explainer mt-1 text-paper/90">
-            Generate an API key to enable programmatic inference & monitoring calls to the ModelMesh backend.
-            Bootstrap-generate only works once, ever, on a given backend — if someone else already has a key,
-            ask them to share it instead of generating a new one.
-          </p>
-          {error && <p className="text-xs font-mono text-rose-700 mt-1">{error}</p>}
-        </div>
+      <div>
+        <span className="badge-research-finding">AUTHENTICATION REQUIRED</span>
+        <p className="explainer mt-1 text-paper/90">
+          Generate an API key to enable programmatic inference & monitoring calls to the ModelMesh backend.
+          Bootstrap-generate only works once, ever, on a given backend — if someone else already has a key,
+          ask them to share it instead of generating a new one.
+        </p>
+        {error && <p className="text-xs font-mono text-rose-700 mt-1">{error}</p>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          placeholder="Your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="flex-grow min-w-[180px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+        />
         <button
           onClick={handleGenerate}
           disabled={busy}
@@ -200,39 +248,90 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
         </button>
       </div>
 
-      {!showManualEntry ? (
-        <button
-          type="button"
-          onClick={() => setShowManualEntry(true)}
-          className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
-        >
-          Already have a key? Paste it instead →
-        </button>
-      ) : (
-        <form onSubmit={handleUseManualKey} className="flex flex-wrap items-center gap-2 pt-1">
-          <input
-            type="text"
-            autoFocus
-            placeholder="mmk_..."
-            value={manualKey}
-            onChange={(e) => setManualKey(e.target.value)}
-            className="flex-grow min-w-[240px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
-          />
-          <button type="submit" className="btn-physical-accent text-xs py-2 px-3">
-            Use This Key
-          </button>
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {!showManualEntry ? (
           <button
             type="button"
-            onClick={() => {
-              setShowManualEntry(false);
-              setManualKey("");
-            }}
-            className="btn-physical text-xs py-2 px-3"
+            onClick={() => setShowManualEntry(true)}
+            className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
           >
-            Cancel
+            Already have a key? Paste it instead →
           </button>
-        </form>
-      )}
+        ) : (
+          <form onSubmit={handleUseManualKey} className="flex flex-wrap items-center gap-2 w-full pt-1">
+            <input
+              type="text"
+              autoFocus
+              placeholder="mmk_..."
+              value={manualKey}
+              onChange={(e) => setManualKey(e.target.value)}
+              className="flex-grow min-w-[240px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+            />
+            <button type="submit" className="btn-physical-accent text-xs py-2 px-3">
+              Use This Key
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowManualEntry(false);
+                setManualKey("");
+              }}
+              className="btn-physical text-xs py-2 px-3"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+
+        {!showLostKey ? (
+          <button
+            type="button"
+            onClick={() => setShowLostKey(true)}
+            className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
+          >
+            Lost your key? Reset it →
+          </button>
+        ) : (
+          <form onSubmit={handleLostKey} className="w-full pt-1 space-y-2">
+            <p className="explainer">
+              Requires the deployer-set admin secret — resets only the key registered under your name,
+              nobody else&rsquo;s.
+            </p>
+            {lostKeyError && <p className="text-xs font-mono text-rose-700">{lostKeyError}</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+              />
+              <input
+                type="password"
+                autoFocus
+                placeholder="Admin secret"
+                value={adminSecret}
+                onChange={(e) => setAdminSecret(e.target.value)}
+                className="flex-grow min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+              />
+              <button type="submit" disabled={busy} className="btn-physical-accent text-xs py-2 px-3">
+                {busy ? "Resetting..." : "Reset My Key"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLostKey(false);
+                  setAdminSecret("");
+                  setLostKeyError(null);
+                }}
+                className="btn-physical text-xs py-2 px-3"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

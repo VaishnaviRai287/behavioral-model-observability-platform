@@ -7,6 +7,11 @@ class ApiKeyCreateRequest(BaseModel):
     name: str
 
 
+class ApiKeyResetRequest(BaseModel):
+    name: str
+    admin_secret: str
+
+
 class ApiKeyCreatedResponse(BaseModel):
     """Returned exactly once, at creation — the only time the plaintext key is exposed."""
     id: str
