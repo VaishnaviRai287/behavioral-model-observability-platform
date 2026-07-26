@@ -1,7 +1,7 @@
 import "./globals.css";
 import React from "react";
 import Link from "next/link";
-import { Activity, Terminal } from "lucide-react";
+import { Activity, Terminal, Workflow } from "lucide-react";
 
 export const metadata = {
   title: "ModelMesh — Behavioral Model Observability Platform",
@@ -47,6 +47,13 @@ export default function RootLayout({
                 >
                   <Terminal className="h-3.5 w-3.5 text-accent" />
                   [ Model Registry ]
+                </Link>
+                <Link
+                  href="/flow"
+                  className="font-mono text-xs uppercase tracking-wider font-semibold text-paper hover:text-accent transition-colors flex items-center gap-1.5 px-2.5 py-1 border border-transparent hover:border-line"
+                >
+                  <Workflow className="h-3.5 w-3.5 text-accent" />
+                  [ System Flow ]
                 </Link>
               </nav>
             </div>
@@ -95,6 +102,9 @@ export default function RootLayout({
                 </a>
                 <Link href="/registry" className="hover:text-accent transition-colors w-fit flex items-center gap-1.5">
                   <span className="text-accent">→</span> Model Registry
+                </Link>
+                <Link href="/flow" className="hover:text-accent transition-colors w-fit flex items-center gap-1.5">
+                  <span className="text-accent">→</span> System Flow
                 </Link>
                 <Link href="/" className="hover:text-accent transition-colors w-fit flex items-center gap-1.5">
                   <span className="text-accent">→</span> Research Overview

@@ -46,8 +46,9 @@ orchestration, PyTorch/TensorFlow/scikit-learn support for ingested models.
   ingestion, probing, fingerprinting, drift/alerting, explainability, and model
   runtime (89 tests at the time).
 
-Per the project's own `docs/v1-*.md` / `docs/v2-*.md` planning docs (kept locally,
-gitignored — see §5), V2-C (Celery + Prometheus/Grafana) had not been started.
+Per the project's own `docs/v1-*.md` / `docs/v2-*.md` planning docs (never git-tracked,
+and deleted entirely per §4.5 — this is just a historical note), V2-C (Celery +
+Prometheus/Grafana) had not been started.
 
 ---
 
