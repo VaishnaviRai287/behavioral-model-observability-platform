@@ -36,7 +36,13 @@ import {
 } from "lucide-react";
 
 // API-key bootstrap/regenerate panel — Utility Panel Family
-function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
+function ApiKeyPanel({
+  onKeyChange,
+  authError,
+}: {
+  onKeyChange?: () => void;
+  authError?: boolean;
+}) {
   const [storedKey, setStoredKeyState] = useState<string | null>(null);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -194,6 +200,118 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
     );
   }
 
+  const recoveryOptions = (
+    <div className="flex flex-wrap gap-x-6 gap-y-2">
+      {!showManualEntry ? (
+        <button
+          type="button"
+          onClick={() => setShowManualEntry(true)}
+          className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
+        >
+          Already have a key? Paste it instead →
+        </button>
+      ) : (
+        <form onSubmit={handleUseManualKey} className="flex flex-wrap items-center gap-2 w-full pt-1">
+          <input
+            type="text"
+            autoFocus
+            placeholder="mmk_..."
+            value={manualKey}
+            onChange={(e) => setManualKey(e.target.value)}
+            className="flex-grow min-w-[240px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+          />
+          <button type="submit" className="btn-physical-accent text-xs py-2 px-3">
+            Use This Key
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowManualEntry(false);
+              setManualKey("");
+            }}
+            className="btn-physical text-xs py-2 px-3"
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+
+      {!showLostKey ? (
+        <button
+          type="button"
+          onClick={() => setShowLostKey(true)}
+          className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
+        >
+          Lost your key? Reset it →
+        </button>
+      ) : (
+        <form onSubmit={handleLostKey} className="w-full pt-1 space-y-2">
+          <p className="explainer">
+            Requires the deployer-set admin secret — resets only the key registered under your name,
+            nobody else&rsquo;s.
+          </p>
+          {lostKeyError && <p className="text-xs font-mono text-rose-700">{lostKeyError}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+            />
+            <input
+              type="password"
+              autoFocus
+              placeholder="Admin secret"
+              value={adminSecret}
+              onChange={(e) => setAdminSecret(e.target.value)}
+              className="flex-grow min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+            />
+            <button type="submit" disabled={busy} className="btn-physical-accent text-xs py-2 px-3">
+              {busy ? "Resetting..." : "Reset My Key"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowLostKey(false);
+                setAdminSecret("");
+                setLostKeyError(null);
+              }}
+              className="btn-physical text-xs py-2 px-3"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+
+  // A stored key that the server just rejected (revoked, or the database was
+  // reset) looks identical to a healthy one from this component's own state —
+  // it only knows to distinguish them because the parent passes down whether
+  // the last connection attempt actually failed on auth. Regenerate isn't
+  // offered here since it would try to authenticate with the same broken key.
+  if (storedKey && authError) {
+    return (
+      <div className="utility-panel-rose space-y-3 shadow-[4px_4px_0px_#211C19]">
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 border border-line bg-panel">
+            <KeyRound className="h-4 w-4 text-paper" />
+          </div>
+          <div>
+            <span className="badge-research-finding">KEY NO LONGER VALID</span>
+            <p className="font-mono text-xs text-mute mt-0.5">
+              Stored key <strong className="text-paper">{storedKey.slice(0, 12)}...</strong> was rejected by the
+              backend — it may have been revoked, or the database was reset since this browser last connected.
+            </p>
+          </div>
+        </div>
+        {recoveryOptions}
+      </div>
+    );
+  }
+
   if (storedKey) {
     return (
       <div className="utility-panel flex flex-wrap items-center justify-between gap-3 shadow-[4px_4px_0px_#211C19]">
@@ -248,90 +366,7 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
-        {!showManualEntry ? (
-          <button
-            type="button"
-            onClick={() => setShowManualEntry(true)}
-            className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
-          >
-            Already have a key? Paste it instead →
-          </button>
-        ) : (
-          <form onSubmit={handleUseManualKey} className="flex flex-wrap items-center gap-2 w-full pt-1">
-            <input
-              type="text"
-              autoFocus
-              placeholder="mmk_..."
-              value={manualKey}
-              onChange={(e) => setManualKey(e.target.value)}
-              className="flex-grow min-w-[240px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
-            />
-            <button type="submit" className="btn-physical-accent text-xs py-2 px-3">
-              Use This Key
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowManualEntry(false);
-                setManualKey("");
-              }}
-              className="btn-physical text-xs py-2 px-3"
-            >
-              Cancel
-            </button>
-          </form>
-        )}
-
-        {!showLostKey ? (
-          <button
-            type="button"
-            onClick={() => setShowLostKey(true)}
-            className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
-          >
-            Lost your key? Reset it →
-          </button>
-        ) : (
-          <form onSubmit={handleLostKey} className="w-full pt-1 space-y-2">
-            <p className="explainer">
-              Requires the deployer-set admin secret — resets only the key registered under your name,
-              nobody else&rsquo;s.
-            </p>
-            {lostKeyError && <p className="text-xs font-mono text-rose-700">{lostKeyError}</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
-              />
-              <input
-                type="password"
-                autoFocus
-                placeholder="Admin secret"
-                value={adminSecret}
-                onChange={(e) => setAdminSecret(e.target.value)}
-                className="flex-grow min-w-[160px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
-              />
-              <button type="submit" disabled={busy} className="btn-physical-accent text-xs py-2 px-3">
-                {busy ? "Resetting..." : "Reset My Key"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLostKey(false);
-                  setAdminSecret("");
-                  setLostKeyError(null);
-                }}
-                className="btn-physical text-xs py-2 px-3"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+      {recoveryOptions}
     </div>
   );
 }
@@ -626,7 +661,7 @@ export default function ModelsRegistry() {
     const isAuthError = error.toLowerCase().includes("api key");
     return (
       <div className="max-w-2xl mx-auto mt-12 space-y-6">
-        <ApiKeyPanel onKeyChange={refetchModels} />
+        <ApiKeyPanel onKeyChange={refetchModels} authError={isAuthError} />
         <div className="utility-panel-rose text-center p-8 space-y-4 shadow-[6px_6px_0px_#211C19]">
           <div className="p-3 w-fit mx-auto border-2 border-rose-400 bg-ink text-rose-600">
             <AlertTriangle className="h-8 w-8" />
