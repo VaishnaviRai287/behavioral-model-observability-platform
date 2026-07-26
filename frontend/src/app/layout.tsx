@@ -125,6 +125,12 @@ export default function RootLayout({
             <div className="space-y-3 md:text-right">
               <p className="label-mono text-paper">SPECIFICATION // 2026</p>
               <p className="explainer">ModelMesh · Geometric Observability Infrastructure</p>
+              <div className="pt-1">
+                <span className="label-mono block mb-1">Dev Admin Secret*</span>
+                <code className="inline-block border border-line bg-panel px-2 py-1 font-mono text-[10px] text-paper break-all">
+                  4a5a6e90abe0ce6f89b1a041f035615cd8723c410c95344f
+                </code>
+              </div>
             </div>
           </div>
 

@@ -282,6 +282,7 @@ function ApiKeyPanel({
               Cancel
             </button>
           </div>
+          <p className="text-[10px] font-mono text-mute">* the current admin secret is in the site footer.</p>
         </form>
       )}
     </div>
@@ -443,7 +444,7 @@ function ModelItem({
 
   const getFrameworkBadge = (fw: string) => {
     const fwLower = fw.toLowerCase();
-    let label = "ONNX";
+    let label = fw;
     if (fwLower.includes("sklearn") || fwLower.includes("scikit")) label = "scikit-learn";
     if (fwLower.includes("torch") || fwLower.includes("pytorch")) label = "PyTorch";
     if (fwLower.includes("tensorflow") || fwLower.includes("keras")) label = "TensorFlow";
@@ -870,7 +871,7 @@ export default function ModelsRegistry() {
                       {uploadStep === "done" && "Model Successfully Registered!"}
                     </h4>
                     <p className="explainer max-w-sm mx-auto">
-                      {uploadStep === "uploading" && "Detecting scikit-learn / PyTorch / TensorFlow / ONNX signatures..."}
+                      {uploadStep === "uploading" && "Detecting scikit-learn / PyTorch / TensorFlow signatures..."}
                       {uploadStep === "probing" && "Mapping confidence boundary across input schema feature ranges..."}
                       {uploadStep === "fingerprinting" && "Storing penultimate layer vectors into FAISS IndexFlatL2..."}
                       {uploadStep === "done" && "Redirecting to your new model research workspace..."}
@@ -931,13 +932,13 @@ export default function ModelsRegistry() {
 
                   <div className="space-y-1.5">
                     <label className="label-mono font-bold text-paper">
-                      Model Artifact File (.pkl, .joblib, .pt, .pth, .onnx, .h5, .keras)
+                      Model Artifact File (.pkl, .joblib, .pt, .pth, .h5, .keras)
                     </label>
                     <div className="border-2 border-dashed border-line p-6 flex flex-col items-center justify-center bg-panel/30 hover:bg-panel/60 transition-colors cursor-pointer relative">
                       <input
                         type="file"
                         required
-                        accept=".pkl,.joblib,.pt,.pth,.onnx,.h5,.keras,.zip,.tar.gz,.tgz"
+                        accept=".pkl,.joblib,.pt,.pth,.h5,.keras,.zip,.tar.gz,.tgz"
                         onChange={(e) => {
                           if (e.target.files && e.target.files.length > 0) {
                             setUploadFile(e.target.files[0]);

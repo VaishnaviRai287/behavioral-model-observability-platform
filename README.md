@@ -140,9 +140,8 @@ docker compose up --build
 │   └── src/lib/api.ts   # Typed API client wrapper (attaches Bearer token)
 │
 ├── alembic/             # Database migration scripts (0001 to 0011)
-├── tests/               # Pytest suite (97 tests)
-├── demo/                # Sample models and drift traffic simulator
-└── test_models/         # Pre-trained models for demo uploads
+├── tests/               # Pytest suite (99 tests)
+└── test_models/         # Sample models + generator script for manual testing
 ```
 
 ---
@@ -195,16 +194,8 @@ GET    /health/ready                               Readiness probe (checks DB co
 
 ## Running Verification
 
-### Run the Demo Simulator
-The demo script uploads a model, runs the ingestion pipeline (probe and fingerprint), sends 30 normal predictions, and then injects 45 drifted predictions.
-
-> **Requires**: A running API with a valid API key. The demo script will bootstrap a key automatically if none exists.
-
-In a separate terminal, run:
-```bash
-python demo/run_demo.py
-```
-Observe the live dashboard at **http://localhost:3000** to watch the novelty timeline cross the threshold and trigger real-time alerts.
+### Try It Yourself
+Generate an API key from the Registry page, then upload one of the sample models in `test_models/` (see `test_models/generate_test_models.py` for how they were trained) along with `test_models/schema.json`. Probing and fingerprinting run automatically on upload; watch the dashboard at **http://localhost:3000** as you send predictions to see novelty and drift scoring live.
 
 ### Run the Test Suite
 You can execute the unit test suite locally using an in-memory SQLite database configuration:

@@ -5,7 +5,6 @@ __pycache__/
 .git/
 .github/
 frontend/
-demo/
 scratch/
 test_models/
 docs/

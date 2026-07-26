@@ -19,7 +19,7 @@ const CAPABILITIES = [
   {
     icon: Database,
     title: "Multi-Framework Autopsy",
-    body: "Ingests scikit-learn, PyTorch, TensorFlow/Keras, and ONNX artifacts. Auto-detects the framework and extracts layer topology plus a deterministic model signature.",
+    body: "Ingests scikit-learn, PyTorch, and TensorFlow/Keras artifacts. Auto-detects the framework and extracts layer topology plus a deterministic model signature.",
     tag: "INGESTION",
   },
   {

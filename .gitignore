@@ -24,11 +24,6 @@ uploads/
 *.tar.gz
 *.tgz
 
-# Demo artifacts generated locally by the demo script
-demo/*.pkl
-demo/*.pt
-demo/*.onnx
-
 # Databases & caches
 *.db
 *.db-journal
@@ -55,8 +50,9 @@ tmp-home/
 dist/
 build/
 
-# Local dev scratch & test models
+# Local dev scratch (the binary model artifacts under test_models/ are already
+# excluded by the *.pkl/*.pt/*.keras rules above — generate_test_models.py and
+# schema.json in there are real source, tracked normally)
 scratch/
-test_models/
 
 PROJECT_STATUS.md
