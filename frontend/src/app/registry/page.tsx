@@ -40,6 +40,8 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualKey, setManualKey] = useState("");
   const inFlightRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -108,6 +110,17 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
     setNewlyCreatedKey(null);
   };
 
+  const handleUseManualKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = manualKey.trim();
+    if (!trimmed) return;
+    setStoredApiKey(trimmed);
+    setStoredKeyState(trimmed);
+    setManualKey("");
+    setShowManualEntry(false);
+    onKeyChange?.();
+  };
+
   if (newlyCreatedKey) {
     return (
       <div className="utility-panel-amber space-y-3 shadow-[4px_4px_0px_#211C19]">
@@ -166,22 +179,60 @@ function ApiKeyPanel({ onKeyChange }: { onKeyChange?: () => void }) {
   }
 
   return (
-    <div className="utility-panel-amber flex flex-wrap items-center justify-between gap-4 shadow-[4px_4px_0px_#211C19]">
-      <div>
-        <span className="badge-research-finding">AUTHENTICATION REQUIRED</span>
-        <p className="explainer mt-1 text-paper/90">
-          Generate an API key to enable programmatic inference & monitoring calls to the ModelMesh backend.
-        </p>
-        {error && <p className="text-xs font-mono text-rose-700 mt-1">{error}</p>}
+    <div className="utility-panel-amber space-y-3 shadow-[4px_4px_0px_#211C19]">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="badge-research-finding">AUTHENTICATION REQUIRED</span>
+          <p className="explainer mt-1 text-paper/90">
+            Generate an API key to enable programmatic inference & monitoring calls to the ModelMesh backend.
+            Bootstrap-generate only works once, ever, on a given backend — if someone else already has a key,
+            ask them to share it instead of generating a new one.
+          </p>
+          {error && <p className="text-xs font-mono text-rose-700 mt-1">{error}</p>}
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={busy}
+          className="btn-physical-accent"
+        >
+          <KeyRound className="h-4 w-4" />
+          {busy ? "Generating..." : "Generate API Key"}
+        </button>
       </div>
-      <button
-        onClick={handleGenerate}
-        disabled={busy}
-        className="btn-physical-accent"
-      >
-        <KeyRound className="h-4 w-4" />
-        {busy ? "Generating..." : "Generate API Key"}
-      </button>
+
+      {!showManualEntry ? (
+        <button
+          type="button"
+          onClick={() => setShowManualEntry(true)}
+          className="label-mono text-paper hover:text-accent transition-colors underline underline-offset-2"
+        >
+          Already have a key? Paste it instead →
+        </button>
+      ) : (
+        <form onSubmit={handleUseManualKey} className="flex flex-wrap items-center gap-2 pt-1">
+          <input
+            type="text"
+            autoFocus
+            placeholder="mmk_..."
+            value={manualKey}
+            onChange={(e) => setManualKey(e.target.value)}
+            className="flex-grow min-w-[240px] px-3 py-2 bg-ink border-2 border-line text-paper font-mono text-xs focus:outline-none focus:border-accent"
+          />
+          <button type="submit" className="btn-physical-accent text-xs py-2 px-3">
+            Use This Key
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowManualEntry(false);
+              setManualKey("");
+            }}
+            className="btn-physical text-xs py-2 px-3"
+          >
+            Cancel
+          </button>
+        </form>
+      )}
     </div>
   );
 }
