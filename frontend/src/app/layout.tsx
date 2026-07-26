@@ -1,7 +1,7 @@
 import "./globals.css";
 import React from "react";
 import Link from "next/link";
-import { Activity, Terminal, Workflow, BookOpen } from "lucide-react";
+import { Activity, Terminal, Workflow, BookOpen, Github, Globe } from "lucide-react";
 
 export const metadata = {
   title: "ModelMesh — Behavioral Model Observability Platform",
@@ -125,9 +125,6 @@ export default function RootLayout({
             <div className="space-y-3 md:text-right">
               <p className="label-mono text-paper">SPECIFICATION // 2026</p>
               <p className="explainer">ModelMesh · Geometric Observability Infrastructure</p>
-              <div className="inline-block border border-line bg-panel px-3 py-1 font-mono text-[9px] uppercase tracking-widest text-paper">
-                Mac OS / System 7 Research Edition
-              </div>
             </div>
           </div>
 
@@ -137,6 +134,33 @@ export default function RootLayout({
               <span className="font-display text-paper block leading-none tracking-tight text-[18vw] md:text-[9.5vw] -mb-[2vw] md:-mb-[1.2vw] whitespace-nowrap opacity-90">
                 MODELMESH
               </span>
+            </div>
+          </div>
+
+          {/* Credit line */}
+          <div className="border-t-2 border-line bg-ink py-4">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="label-mono text-mute">Made by Vaishnavi Rai</p>
+              <div className="flex items-center gap-5 font-mono text-xs">
+                <a
+                  href="https://github.com/VaishnaviRai287"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent transition-colors flex items-center gap-1.5"
+                >
+                  <Github className="h-3.5 w-3.5" />
+                  GitHub
+                </a>
+                <a
+                  href="https://vaishnavirai.vercel.app/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent transition-colors flex items-center gap-1.5"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  Portfolio
+                </a>
+              </div>
             </div>
           </div>
         </footer>
