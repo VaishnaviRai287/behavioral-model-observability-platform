@@ -18,6 +18,15 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: modelmesh-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     container_name: modelmesh-api
@@ -26,8 +35,27 @@ services:
     environment:
       - DATABASE_URL=postgresql://modelmesh:modelmesh123@db:5432/modelmesh
       - UPLOAD_DIR=uploads
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+
+  celery-worker:
+    build: .
+    container_name: modelmesh-celery-worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://modelmesh:modelmesh123@db:5432/modelmesh
+      - UPLOAD_DIR=uploads
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads

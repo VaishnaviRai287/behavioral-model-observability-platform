@@ -141,10 +141,9 @@ def explain_prediction_log(db: Session, model_id: str, prediction_id: str) -> di
     if not log:
         raise HTTPException(status_code=404, detail="Prediction log not found")
         
-    # Load model wrapper
+    # Load model wrapper (already loaded by load_model's __init__)
     try:
         wrapper = load_model(model.file_path)
-        wrapper.load()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load model file: {e}")
         
@@ -191,10 +190,9 @@ def compute_global_explainability(db: Session, model_id: str) -> dict:
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
         
-    # Load model wrapper
+    # Load model wrapper (already loaded by load_model's __init__)
     try:
         wrapper = load_model(model.file_path)
-        wrapper.load()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load model file: {e}")
         

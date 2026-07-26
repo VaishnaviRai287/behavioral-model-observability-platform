@@ -20,6 +20,9 @@ from sklearn.linear_model import LogisticRegression
 
 BASE_URL = "http://localhost:8000"
 
+# Populated by bootstrap_api_key() before anything else runs.
+API_KEY: str | None = None
+
 
 def banner(title: str) -> None:
     print(f"\n{'=' * 60}")
@@ -27,12 +30,48 @@ def banner(title: str) -> None:
     print("=" * 60)
 
 
+def _auth_headers() -> dict:
+    return {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
+
+
+def bootstrap_api_key() -> str:
+    """
+    Mints an API key. Works unauthenticated only on a fresh instance (zero keys
+    exist yet) — every other request in this script authenticates with the key
+    returned here. On a re-run against a database that already has a key, set
+    MODELMESH_API_KEY in the environment instead of relying on bootstrap.
+    """
+    import os
+
+    env_key = os.environ.get("MODELMESH_API_KEY")
+    if env_key:
+        return env_key
+
+    data = json.dumps({"name": "demo-script"}).encode()
+    req = urllib.request.Request(
+        f"{BASE_URL}/api/v1/api-keys",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["key"]
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            raise SystemExit(
+                "An API key already exists on this instance, so bootstrap is closed. "
+                "Set MODELMESH_API_KEY=<your key> and re-run this script."
+            )
+        raise
+
+
 def post_json(path: str, payload: dict) -> dict:
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
         f"{BASE_URL}{path}",
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **_auth_headers()},
         method="POST",
     )
     with urllib.request.urlopen(req) as r:
@@ -40,7 +79,8 @@ def post_json(path: str, payload: dict) -> dict:
 
 
 def get_json(path: str) -> dict:
-    with urllib.request.urlopen(f"{BASE_URL}{path}") as r:
+    req = urllib.request.Request(f"{BASE_URL}{path}", headers=_auth_headers())
+    with urllib.request.urlopen(req) as r:
         return json.loads(r.read())
 
 
@@ -66,7 +106,7 @@ def upload_model(model_bytes: bytes, name: str, schema: dict) -> dict:
     req = urllib.request.Request(
         f"{BASE_URL}/api/v1/models",
         data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}", **_auth_headers()},
         method="POST",
     )
     with urllib.request.urlopen(req) as r:
@@ -75,6 +115,11 @@ def upload_model(model_bytes: bytes, name: str, schema: dict) -> dict:
 
 def main() -> None:
     print("🚀  ModelMesh Demo — full ingestion → drift simulation")
+
+    global API_KEY
+    banner("Step 0 · Bootstrap an API key  POST /api/v1/api-keys")
+    API_KEY = bootstrap_api_key()
+    print(f"  ✅  API key minted  {API_KEY[:12]}...")
 
     # ── 1. Train model ──────────────────────────────────────────────────────
     banner("Step 1 · Train a Logistic Regression model")

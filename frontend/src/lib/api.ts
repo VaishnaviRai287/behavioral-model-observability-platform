@@ -111,6 +111,71 @@ export interface PredictionExplanation {
   breakdown: PredictionBreakdown[];
 }
 
+export interface ApiKeyCreated {
+  id: string;
+  name: string;
+  key: string;
+  key_prefix: string;
+  created_at: string;
+}
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+const API_KEY_STORAGE_KEY = 'modelmesh_api_key';
+
+export function getStoredApiKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(API_KEY_STORAGE_KEY);
+}
+
+export function setStoredApiKey(key: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(API_KEY_STORAGE_KEY, key);
+}
+
+export function clearStoredApiKey(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+// A freshly-created key needs to survive the registry page's error->success
+// remount (the "no key yet" error view and the loaded view are different React
+// trees) so the user actually gets to see/copy it once, rather than it flashing
+// and disappearing the instant the model list successfully loads.
+const PENDING_REVEAL_KEY = 'modelmesh_api_key_pending_reveal';
+
+export function getPendingKeyReveal(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.sessionStorage.getItem(PENDING_REVEAL_KEY);
+}
+
+export function setPendingKeyReveal(key: string): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(PENDING_REVEAL_KEY, key);
+}
+
+export function clearPendingKeyReveal(): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(PENDING_REVEAL_KEY);
+}
+
+// Attaches the stored API key (if any) to a headers object — used both by
+// ApiClient below and by the few direct fetch() calls outside it (traffic simulator).
+export function authHeaders(extra?: HeadersInit): HeadersInit {
+  const key = getStoredApiKey();
+  return {
+    ...(key ? { Authorization: `Bearer ${key}` } : {}),
+    ...extra,
+  };
+}
+
 // Global API Helper client using fetch
 class ApiClient {
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -118,6 +183,7 @@ class ApiClient {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders(),
         ...options?.headers,
       },
     });
@@ -161,6 +227,7 @@ class ApiClient {
 
     return fetch('/api/models', {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     }).then(async res => {
       if (!res.ok) {
@@ -238,6 +305,22 @@ class ApiClient {
 
   getPredictionExplanation(modelId: string, predictionId: string): Promise<PredictionExplanation> {
     return this.request<PredictionExplanation>(`/api/models/${modelId}/predictions/${predictionId}/explain`);
+  }
+
+  // API Keys
+  createApiKey(name: string): Promise<ApiKeyCreated> {
+    return this.request<ApiKeyCreated>('/api/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  listApiKeys(): Promise<ApiKeySummary[]> {
+    return this.request<ApiKeySummary[]>('/api/api-keys');
+  }
+
+  revokeApiKey(id: string): Promise<ApiKeySummary> {
+    return this.request<ApiKeySummary>(`/api/api-keys/${id}`, { method: 'DELETE' });
   }
 }
 

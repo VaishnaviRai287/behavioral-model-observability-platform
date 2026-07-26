@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import urllib.request
 import urllib.error
 import time
@@ -7,10 +8,46 @@ import random
 
 BASE_URL = "http://localhost:8000"
 
+
+def get_api_key():
+    """
+    Reads MODELMESH_API_KEY if set (the normal path — a key from a previous
+    run_demo.py or the dashboard's own bootstrap). Falls back to minting one,
+    which only succeeds if this instance genuinely has zero keys yet.
+    """
+    env_key = os.environ.get("MODELMESH_API_KEY")
+    if env_key:
+        return env_key
+
+    data = json.dumps({"name": "simulate-traffic"}).encode()
+    req = urllib.request.Request(
+        f"{BASE_URL}/api/v1/api-keys",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["key"]
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            raise SystemExit(
+                "This instance already has an API key. Set MODELMESH_API_KEY=<your key> and re-run."
+            )
+        raise
+
+
+API_KEY = get_api_key()
+
+
+def _auth_headers():
+    return {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
+
+
 def get_latest_model_id():
     try:
         url = f"{BASE_URL}/api/v1/models"
-        req = urllib.request.Request(url, method="GET")
+        req = urllib.request.Request(url, method="GET", headers=_auth_headers())
         with urllib.request.urlopen(req) as response:
             models = json.loads(response.read().decode())
             if not models:
@@ -33,7 +70,7 @@ def send_prediction(model_id, x1, x2):
     req = urllib.request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **_auth_headers()},
         method="POST"
     )
     try:

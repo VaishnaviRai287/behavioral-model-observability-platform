@@ -145,14 +145,13 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
             {"input_features": features}
         )
 
-    # ── Synchronous Drift Check (Every 50th prediction) ──────────────────────────
+    # ── Async Drift Check (Every 50th prediction) ────────────────────────────────
+    # Dispatched to a Celery worker so drift computation never blocks this response.
     prediction_count = db.query(PredictionLog).filter(PredictionLog.model_id == model_id).count()
     if prediction_count > 0 and prediction_count % 50 == 0:
-        from app.monitoring.drift_detector import detect_drift
-        from app.monitoring.alert_engine import process_feature_drift
-        
-        drift_events = detect_drift(db, model_id, n_recent=100)
-        process_feature_drift(db, model_id, drift_events)
+        from app.tasks.drift_task import run_drift_check
+
+        run_drift_check.delay(model_id)
 
 
     return {

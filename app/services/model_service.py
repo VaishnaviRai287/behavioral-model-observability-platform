@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.ml.model_cache import invalidate as invalidate_model_cache
+from app.models.faiss_index import FAISSIndex
 from app.models.ml_model import MLModel
 from app.utils.framework_detector import detect_framework
 
@@ -109,9 +110,6 @@ def upload_model(
 def list_models(db: Session) -> list[MLModel]:
     """Return all registered models."""
     return db.query(MLModel).order_by(MLModel.created_at.desc()).all()
-
-
-from app.models.faiss_index import FAISSIndex
 
 
 def get_model(db: Session, model_id: str) -> MLModel:

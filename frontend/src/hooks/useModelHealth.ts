@@ -15,6 +15,9 @@ export function useModels() {
   const [data, setData] = useState<ModelListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refetch = () => setRefreshTrigger((prev) => prev + 1);
 
   useEffect(() => {
     let active = true;
@@ -41,9 +44,9 @@ export function useModels() {
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [refreshTrigger]);
 
-  return { data, loading, error };
+  return { data, loading, error, refetch };
 }
 
 // 2. Model Detail Polling (Slower: 10s)

@@ -2,67 +2,179 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-display: "Anton", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-serif: "Playfair Display", serif;
+}
+
 @layer base {
   body {
-    @apply bg-darkBg text-slate-100 antialiased selection:bg-teal-500 selection:text-white min-h-screen flex flex-col;
+    @apply bg-ink text-paper antialiased selection:bg-paper selection:text-ink min-h-screen flex flex-col;
+    font-family: var(--font-mono);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-darkBg;
+    @apply bg-ink;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-darkBorder rounded-full border border-darkBg hover:bg-slate-700 transition-colors;
+    @apply bg-line rounded-none hover:bg-mute transition-colors;
   }
 }
 
-/* Glassmorphism Classes */
-.glass-panel {
-  @apply bg-darkCard/80 backdrop-blur-md border border-darkBorder/60 shadow-lg shadow-black/20;
+/* ──────────────────────────────────────────────────────────────────────────
+   LEVEL 1 — FLOATING RESEARCH WINDOWS (~20% of components)
+   Used ONLY for major analytical visualizations (Novelty, Drift, SHAP, Fingerprint)
+   ────────────────────────────────────────────────────────────────────────── */
+.research-window {
+  @apply bg-ink border-2 border-line shadow-[6px_6px_0px_#211C19] overflow-hidden flex flex-col transition-all duration-150;
 }
 
-.glass-panel-hover {
-  @apply transition-all duration-300 hover:border-teal-500/30 hover:shadow-teal-500/5 hover:bg-darkCard;
+.window-titlebar {
+  @apply bg-panel border-b-2 border-line px-4 py-2 flex items-center justify-between select-none shrink-0;
 }
 
-/* Gradient text */
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400;
+.window-dots {
+  @apply flex items-center gap-1.5;
 }
 
-/* Custom dot glowing animation */
-@keyframes pulse-glow {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4);
+.window-dot {
+  @apply h-2.5 w-2.5 rounded-full border border-line;
+}
+
+.window-content {
+  @apply p-6 flex-grow bg-ink;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   LEVEL 2 — EDITORIAL SECTIONS (Unboxed, whitespace & typography driven)
+   ────────────────────────────────────────────────────────────────────────── */
+.editorial-section {
+  @apply py-8 space-y-6 relative transition-colors duration-150;
+}
+
+.editorial-card {
+  @apply bg-panel border-2 border-line p-5 relative shadow-[4px_4px_0px_#211C19] transition-all duration-150;
+}
+
+.editorial-card-white {
+  @apply bg-ink border-2 border-line p-5 relative shadow-[4px_4px_0px_#211C19] transition-all duration-150;
+}
+
+.editorial-divider {
+  @apply border-t-2 border-line my-6;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   LEVEL 3 — INLINE METRIC STRIPS (Unboxed stats separated by vertical lines)
+   ────────────────────────────────────────────────────────────────────────── */
+.metric-strip {
+  @apply grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x-2 divide-line border-y-2 border-line py-4 bg-transparent;
+}
+
+.inline-metric {
+  @apply px-5 py-2 space-y-1 select-none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   LEVEL 4 — UTILITY COMPONENTS (Functional, minimal elevation)
+   ────────────────────────────────────────────────────────────────────────── */
+.utility-panel {
+  @apply bg-ink border-2 border-line p-4 relative;
+}
+
+.utility-panel-amber {
+  @apply bg-amber-50/70 border-2 border-amber-400 p-4 relative;
+}
+
+.utility-panel-rose {
+  @apply bg-rose-50/70 border-2 border-rose-400 p-4 relative;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   PHYSICAL BUTTON CONTROLS (Tactile desktop buttons)
+   ────────────────────────────────────────────────────────────────────────── */
+.btn-physical {
+  @apply font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 border-2 border-line bg-ink text-paper hover:-translate-y-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-physical-accent {
+  @apply font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 border-2 border-line bg-accent text-ink hover:-translate-y-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   RESEARCH OBJECT TAGS (Standardized metadata badges)
+   ────────────────────────────────────────────────────────────────────────── */
+.badge-research {
+  @apply font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 border border-line bg-ink text-paper font-semibold inline-flex items-center gap-1.5;
+}
+
+.badge-research-finding {
+  @apply font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 border border-accent bg-accent/10 text-accent font-semibold inline-flex items-center gap-1.5;
+}
+
+.badge-research-baseline {
+  @apply font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 border border-line bg-panel text-paper font-semibold inline-flex items-center gap-1.5;
+}
+
+/* Legacy panel compatibility */
+.panel {
+  @apply bg-panel border border-line;
+}
+
+.label-mono {
+  @apply font-mono uppercase tracking-widest text-[10px] text-mute;
+}
+
+.stat-huge {
+  @apply font-display text-4xl leading-none text-paper;
+}
+
+.explainer {
+  @apply text-xs text-mute leading-relaxed;
+}
+
+.grid-texture {
+  background-image: radial-gradient(circle, #2A2A26 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.grid-texture-light {
+  background-image: radial-gradient(circle, rgba(10, 10, 10, 0.15) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+@keyframes orbit {
+  from {
+    transform: rotate(0deg) translateX(var(--orbit-radius, 70px)) rotate(0deg);
   }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 12px 4px rgba(13, 148, 136, 0.25);
+  to {
+    transform: rotate(360deg) translateX(var(--orbit-radius, 70px)) rotate(-360deg);
   }
 }
-
-.pulse-glow-teal {
-  animation: pulse-glow 2s infinite;
+.animate-orbit {
+  animation: orbit 7s linear infinite;
 }
 
-@keyframes scan-animation {
-  0%, 100% {
-    transform: translateY(0);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translateY(44px);
-    opacity: 0.9;
-  }
+.full-bleed {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
 }
 
-.scan-line {
-  animation: scan-animation 2.5s ease-in-out infinite;
+.section-label {
+  @apply label-mono flex items-center gap-2 mb-4;
 }
-
+.section-label::before {
+  content: "";
+  @apply h-px w-4 bg-line;
+}

@@ -13,7 +13,7 @@ def process_latent_novelty(db: Session, model_id: str, distance: float, metadata
         .filter(
             Alert.model_id == model_id,
             Alert.alert_type == "LATENT_NOVELTY",
-            Alert.resolved_at == None,
+            Alert.resolved_at.is_(None),
         )
         .first()
     )
@@ -59,7 +59,7 @@ def process_feature_drift(db: Session, model_id: str, drift_events: list[DriftEv
         .filter(
             Alert.model_id == model_id,
             Alert.alert_type == "FEATURE_DRIFT",
-            Alert.resolved_at == None,
+            Alert.resolved_at.is_(None),
         )
         .first()
     )

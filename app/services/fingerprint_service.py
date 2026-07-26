@@ -1,9 +1,13 @@
+import numpy as np
 from fastapi import HTTPException
+from sklearn.tree import DecisionTreeRegressor, _tree
 from sqlalchemy.orm import Session
 
 from app.fingerprinting.comparator import compare_fingerprints
 from app.fingerprinting.metrics import compute_fingerprint_metrics
 from app.models.fingerprint import Fingerprint
+from app.models.ml_model import MLModel
+from app.models.probe_result import ProbeResult
 from app.models.probe_session import ProbeSession
 from app.schemas.fingerprint import ComparisonResult
 
@@ -92,11 +96,6 @@ def compare(db: Session, fp_a_id: str, fp_b_id: str) -> dict:
     fp_b = get_fingerprint(db, fp_b_id)
     return compare_fingerprints(fp_a, fp_b)
 
-
-import numpy as np
-from sklearn.tree import DecisionTreeRegressor, _tree
-from app.models.probe_result import ProbeResult
-from app.models.ml_model import MLModel
 
 # In-memory cache for uncertainty regions
 _uncertainty_regions_cache = {}

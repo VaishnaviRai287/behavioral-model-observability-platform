@@ -1,7 +1,7 @@
 import json
 import zipfile
 from pathlib import Path
-import torch
+
 
 def extract_architecture(file_path: str, framework: str) -> dict | None:
     """
@@ -13,6 +13,7 @@ def extract_architecture(file_path: str, framework: str) -> dict | None:
     
     if framework == "pytorch":
         try:
+            import torch  # lazy import: only needed for pytorch models
             # Load PyTorch model
             model = torch.load(file_path, map_location="cpu", weights_only=False)
             layers = []

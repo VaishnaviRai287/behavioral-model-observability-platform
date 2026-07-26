@@ -10,7 +10,7 @@ import {
   useModelPredictions,
   useModelFingerprints,
 } from "@/hooks/useModelHealth";
-import { api } from "@/lib/api";
+import { api, authHeaders } from "@/lib/api";
 import {
   LineChart,
   Line,
@@ -30,19 +30,71 @@ import {
   AlertOctagon,
   Percent,
   Compass,
-  CheckCircle,
   Clock,
-  ExternalLink,
   ChevronRight,
   ShieldCheck,
   AlertTriangle,
   Play,
-  BarChart2,
-  Heart,
   Cpu,
   Database,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Fingerprint as FingerprintIcon,
+  Layers,
+  Terminal,
 } from "lucide-react";
+
+// Recharts styling constants
+const GRID_STROKE = "#E8D3D9";
+const AXIS_STROKE = "#8A6A70";
+const TOOLTIP_STYLE = {
+  backgroundColor: "#FFFFFF",
+  borderColor: "#211C19",
+  borderRadius: 0,
+  fontSize: "11px",
+  color: "#1A1613",
+  boxShadow: "3px 3px 0px #211C19",
+};
+const PAPER = "#1A1613";
+const MUTE = "#8A6A70";
+const ROSE = "#E11D48";
+const AMBER = "#D97706";
+const EMERALD = "#059669";
+
+// Context framing header for charts: Title, Description, What am I looking at?, Why does it matter?
+function ChartFrameHeader({
+  title,
+  what,
+  why,
+  badgeText = "RESEARCH_WINDOW",
+}: {
+  title: string;
+  what: string;
+  why: string;
+  badgeText?: string;
+}) {
+  return (
+    <div className="border-b-2 border-line pb-3 mb-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="font-serif font-bold text-xl text-paper">{title}</h3>
+        <span className="badge-research">{badgeText}</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 font-mono text-[11px]">
+        <div className="bg-panel/30 border border-line p-2.5">
+          <span className="label-mono block text-accent font-bold mb-0.5">WHAT AM I LOOKING AT?</span>
+          <p className="text-paper/90 leading-relaxed">{what}</p>
+        </div>
+        <div className="bg-ink border border-line p-2.5">
+          <span className="label-mono block text-paper font-bold mb-0.5">WHY DOES IT MATTER?</span>
+          <p className="explainer leading-relaxed">{why}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ModelDashboard() {
   const params = useParams();
@@ -58,15 +110,29 @@ export default function ModelDashboard() {
 
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  // Observability Enhancement States
-  const [activeTab, setActiveTab] = useState<"monitoring" | "graph" | "health" | "performance" | "drift_analysis" | "explainability">("monitoring");
+  // Accordion Section States
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    monitoring: true,
+    health: false,
+    performance: false,
+    drift_analysis: false,
+    explainability: false,
+  });
+
+  const toggleSection = (sectionKey: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  };
+
+  // Observability Data States
   const [datasetHealth, setDatasetHealth] = useState<any>(null);
   const [datasetHealthLoading, setDatasetHealthLoading] = useState(false);
   const [performanceProfile, setPerformanceProfile] = useState<any>(null);
   const [performanceLoading, setPerformanceLoading] = useState(false);
   const [driftAnalysis, setDriftAnalysis] = useState<any>(null);
   const [driftLoading, setDriftLoading] = useState(false);
-  const [selectedLayer, setSelectedLayer] = useState<any>(null);
   const [selectedDriftFeature, setSelectedDriftFeature] = useState<string>("");
 
   // Explainability States
@@ -76,30 +142,34 @@ export default function ModelDashboard() {
   const [predExplanation, setPredExplanation] = useState<any>(null);
   const [explanationLoading, setExplanationLoading] = useState(false);
 
-  // Lazy loading API data based on active tab
+  // Copy hash feedback state
+  const [copiedHash, setCopiedHash] = useState(false);
+  const [showRawParams, setShowRawParams] = useState(false);
+
+  // Lazy loading API data when an accordion section is expanded
   React.useEffect(() => {
-    if (activeTab === "health" && !datasetHealth) {
+    if (expandedSections.health && !datasetHealth) {
       setDatasetHealthLoading(true);
       api.getDatasetHealth(modelId)
         .then(setDatasetHealth)
         .catch(console.error)
         .finally(() => setDatasetHealthLoading(false));
     }
-    if (activeTab === "performance" && !performanceProfile) {
+    if (expandedSections.performance && !performanceProfile) {
       setPerformanceLoading(true);
       api.getPerformanceProfile(modelId)
         .then(setPerformanceProfile)
         .catch(console.error)
         .finally(() => setPerformanceLoading(false));
     }
-    if (activeTab === "drift_analysis" && !driftAnalysis) {
+    if (expandedSections.drift_analysis && !driftAnalysis) {
       setDriftLoading(true);
       api.getDriftAnalysis(modelId)
         .then(setDriftAnalysis)
         .catch(console.error)
         .finally(() => setDriftLoading(false));
     }
-    if (activeTab === "explainability") {
+    if (expandedSections.explainability) {
       if (!globalExplain) {
         setGlobalLoading(true);
         api.getGlobalExplainability(modelId)
@@ -111,7 +181,7 @@ export default function ModelDashboard() {
         setSelectedPredId(predictions[0].id);
       }
     }
-  }, [activeTab, modelId, datasetHealth, performanceProfile, driftAnalysis, globalExplain, predictions, selectedPredId]);
+  }, [expandedSections, modelId, datasetHealth, performanceProfile, driftAnalysis, globalExplain, predictions, selectedPredId]);
 
   // Fetch local prediction explanation when selection changes
   React.useEffect(() => {
@@ -144,20 +214,16 @@ export default function ModelDashboard() {
       // Step 1: Normal predictions (30 count)
       for (let i = 0; i < 30; i++) {
         setSimStatus(`Streaming Normal Traffic (${i + 1}/30)`);
-        
         const payloadFeatures: Record<string, number> = {};
         featuresSpec.forEach((f: any) => {
           const minVal = f.min !== undefined && f.min !== null ? f.min : 0.0;
           const maxVal = f.max !== undefined && f.max !== null ? f.max : 1.0;
-          // Normal is bottom 30% of range
           payloadFeatures[f.name] = Number((minVal + Math.random() * (maxVal - minVal) * 0.3).toFixed(3));
         });
 
         await fetch(`/api/models/${modelId}/predict`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ features: payloadFeatures }),
         });
 
@@ -165,27 +231,22 @@ export default function ModelDashboard() {
         refetchPredictions();
         refetchHealth();
         refetchAlerts();
-        
         await delay(120);
       }
 
       // Step 2: Drifted predictions (45 count)
       for (let i = 0; i < 45; i++) {
         setSimStatus(`Injecting Drift Traffic (${i + 1}/45)`);
-
         const payloadFeatures: Record<string, number> = {};
         featuresSpec.forEach((f: any) => {
           const minVal = f.min !== undefined && f.min !== null ? f.min : 0.0;
           const maxVal = f.max !== undefined && f.max !== null ? f.max : 1.0;
-          // Drifted is top 30% of range (0.7 - 0.98)
           payloadFeatures[f.name] = Number((minVal + (0.7 + Math.random() * 0.28) * (maxVal - minVal)).toFixed(3));
         });
 
         await fetch(`/api/models/${modelId}/predict`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ features: payloadFeatures }),
         });
 
@@ -193,7 +254,6 @@ export default function ModelDashboard() {
         refetchPredictions();
         refetchHealth();
         refetchAlerts();
-
         await delay(120);
       }
 
@@ -208,7 +268,6 @@ export default function ModelDashboard() {
     }
   };
 
-  // Compute Novelty Thresholds
   const baselineMean = model?.baseline_mean ?? 0.0;
   const baselineStd = model?.baseline_std ?? 0.0;
   const threshold = baselineMean + 3 * baselineStd;
@@ -217,7 +276,6 @@ export default function ModelDashboard() {
     setResolvingId(alertId);
     try {
       await api.resolveAlert(modelId, alertId);
-      // Remove resolved alert from local state
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
     } catch (err: any) {
       alert(`Failed to resolve alert: ${err.message}`);
@@ -226,33 +284,38 @@ export default function ModelDashboard() {
     }
   };
 
+  const handleCopySignature = () => {
+    if (model?.signature) {
+      navigator.clipboard.writeText(model.signature);
+      setCopiedHash(true);
+      setTimeout(() => setCopiedHash(false), 2000);
+    }
+  };
+
   if (modelLoading || healthLoading) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="h-6 w-32 bg-slate-800 rounded" />
-        <div className="h-10 w-64 bg-slate-800 rounded" />
-        <div className="h-24 bg-darkCard border border-darkBorder rounded-2xl" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-80 bg-darkCard border border-darkBorder rounded-2xl" />
-          <div className="h-80 bg-darkCard border border-darkBorder rounded-2xl" />
-        </div>
+        <div className="h-6 w-32 bg-panel" />
+        <div className="h-10 w-64 bg-panel" />
+        <div className="h-28 editorial-section" />
+        <div className="h-96 research-window" />
       </div>
     );
   }
 
   if (modelError || !model) {
     return (
-      <div className="glass-panel max-w-lg mx-auto p-8 text-center rounded-2xl border-rose-500/20 mt-12">
-        <div className="p-3 w-fit mx-auto rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-4">
+      <div className="utility-panel-rose max-w-lg mx-auto p-8 text-center mt-12 border-2 border-rose-400">
+        <div className="p-3 w-fit mx-auto border-2 border-rose-400 bg-ink text-rose-600 mb-4">
           <AlertTriangle className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Model Not Found</h2>
-        <p className="text-slate-400 text-sm mb-6">
-          The model ID "{modelId}" does not exist or has been deleted.
+        <h2 className="text-2xl font-serif text-paper font-bold mb-2">Model Artifact Not Found</h2>
+        <p className="explainer mb-6">
+          The model ID &quot;{modelId}&quot; does not exist or has been deleted from storage.
         </p>
         <button
-          onClick={() => router.push("/")}
-          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors text-sm"
+          onClick={() => router.push("/registry")}
+          className="btn-physical-accent mx-auto"
         >
           Back to Registry
         </button>
@@ -260,9 +323,9 @@ export default function ModelDashboard() {
     );
   }
 
-  // format prediction events for novelty chart
+  // Format prediction events for novelty timeline
   const timelineData = [...predictions]
-    .reverse() // Display oldest to newest left-to-right
+    .reverse()
     .map((p) => ({
       created_at: new Date(p.created_at).toLocaleTimeString(undefined, {
         hour: "2-digit",
@@ -273,7 +336,6 @@ export default function ModelDashboard() {
       novelty_flag: p.novelty_flag ?? false,
     }));
 
-  // format feature drift events for bar chart
   const featureDriftData = health
     ? Object.entries(health.drift_scores).map(([name, score]) => ({
         name,
@@ -285,7 +347,6 @@ export default function ModelDashboard() {
   const activeAlertsCount = alerts.filter((a) => !a.resolved_at).length;
   const noveltyRatePercent = health ? (health.novelty_rate * 100).toFixed(1) : "0.0";
 
-  // Custom Dot component for Novelty Timeline
   const CustomDot = (props: any) => {
     const { cx, cy, payload } = props;
     if (cx === undefined || cy === undefined) return null;
@@ -294,726 +355,60 @@ export default function ModelDashboard() {
       <circle
         cx={cx}
         cy={cy}
-        r={isNovel ? 4.5 : 3}
-        fill={isNovel ? "#F43F5E" : "#0D9488"}
-        stroke={isNovel ? "#F43F5E" : "#0D9488"}
-        className={isNovel ? "pulse-glow-rose" : ""}
+        r={isNovel ? 5 : 3}
+        fill={isNovel ? ROSE : PAPER}
+        stroke={isNovel ? ROSE : PAPER}
       />
     );
   };
 
-  // ── Sub-renders for Observability Tabs ─────────────────────────────────────
-  const renderArchitectureGraph = () => {
-    const layers = model.architecture?.layers || [];
-    if (layers.length === 0) {
-      return (
-        <div className="py-12 text-center max-w-sm mx-auto">
-          <div className="p-3 w-fit mx-auto rounded-full bg-slate-800 text-slate-500 mb-3 border border-darkBorder">
-            <Compass className="h-5.5 w-5.5" />
-          </div>
-          <h4 className="text-sm font-semibold text-white mb-0.5">No Architecture Graph Available</h4>
-          <p className="text-xs text-slate-400">
-            Ensure the model was uploaded in a supported framework (PyTorch or Keras) to compile the graph.
-          </p>
-        </div>
-      );
+  const scrollToSection = (sectionKey: string) => {
+    setExpandedSections((prev) => ({ ...prev, [sectionKey]: true }));
+    const element = document.getElementById(`section-${sectionKey}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
     }
-
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* SVG Canvas */}
-        <div className="lg:col-span-2 glass-panel p-5 rounded-2xl flex flex-col items-center max-h-[600px] overflow-y-auto min-h-[400px]">
-          <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-6 self-start">Model Topology Graph</h4>
-          <div className="relative flex flex-col items-center w-full py-4 select-none">
-            {layers.map((layer: any, idx: number) => {
-              const isSelected = selectedLayer?.name === layer.name;
-              return (
-                <React.Fragment key={idx}>
-                  {/* Layer Node */}
-                  <div
-                    onClick={() => setSelectedLayer(layer)}
-                    className={`w-64 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 text-center flex flex-col justify-center items-center relative group
-                      ${isSelected 
-                        ? "bg-teal-500/15 border-teal-500 shadow-lg shadow-teal-500/15 scale-[1.03]" 
-                        : "bg-slate-900 border-darkBorder hover:border-teal-500/50 hover:bg-slate-850 hover:scale-[1.01]"
-                      }`}
-                  >
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono">
-                      Layer {idx}
-                    </span>
-                    <span className="text-xs font-bold text-white mt-1 break-all truncate max-w-full">
-                      {layer.name || `layer_${idx}`}
-                    </span>
-                    <span className="text-[10px] mt-1.5 px-2 py-0.5 rounded bg-slate-950 text-teal-400 font-mono font-semibold border border-darkBorder/40">
-                      {layer.type}
-                    </span>
-                  </div>
-
-                  {/* Flow Arrow */}
-                  {idx < layers.length - 1 && (
-                    <div className="flex flex-col items-center my-3.5">
-                      <div className="w-0.5 h-6 bg-gradient-to-b from-teal-500/40 to-teal-500/10" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500/40 -mt-1.5 animate-pulse" />
-                    </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Inspector Sidebar */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 h-fit">
-          <h4 className="text-xs font-bold text-white uppercase tracking-wider">Layer Inspector</h4>
-          {selectedLayer ? (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Name</span>
-                <p className="text-sm font-bold text-white break-all">{selectedLayer.name}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Class Type</span>
-                <div>
-                  <span className="inline-block text-xs bg-teal-500/10 border border-teal-500/30 px-2.5 py-0.5 rounded text-teal-400 font-mono font-bold">
-                    {selectedLayer.type}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Configuration details</span>
-                <pre className="text-[11px] text-slate-300 font-mono bg-slate-950 p-3 rounded border border-darkBorder overflow-x-auto whitespace-pre-wrap break-all">
-                  {selectedLayer.details || "No parameter details extracted."}
-                </pre>
-              </div>
-            </div>
-          ) : (
-            <div className="py-12 text-center text-slate-500 text-xs">
-              Click on a layer in the graph to inspect its parameters.
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderDatasetHealth = () => {
-    if (datasetHealthLoading) {
-      return (
-        <div className="h-64 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
-          Analyzing dataset health...
-        </div>
-      );
-    }
-    if (!datasetHealth) return null;
-
-    const classChartData = Object.entries(datasetHealth.class_imbalance.counts).map(([name, count]) => ({
-      name: `Class ${name}`,
-      count,
-      percentage: datasetHealth.class_imbalance.percentages[name] || 0
-    }));
-
-    const outliersChartData = Object.entries(datasetHealth.outliers.by_feature).map(([name, count]) => ({
-      name,
-      count
-    }));
-
-    return (
-      <div className="space-y-6">
-        {/* Health Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Missing Values</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{datasetHealth.missing_values.percentage}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{datasetHealth.missing_values.total_missing} null values found</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Duplicate Inputs</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{datasetHealth.duplicates.percentage}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{datasetHealth.duplicates.duplicate_count} duplicates found</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Outliers Rate</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{datasetHealth.outliers.percentage}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{datasetHealth.outliers.total_outliers} outliers detected</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Class Entropy</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{datasetHealth.class_imbalance.entropy}</p>
-            <p className="text-[10px] text-slate-500 mt-1">Shannon scale (higher = balanced)</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Class Imbalance Chart */}
-          <div className="glass-panel p-5 rounded-2xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Class Balance Distribution</h3>
-              <p className="text-[11px] text-slate-400">Proportions of classes predicted in production logs</p>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={classChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" vertical={false} />
-                  <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={10} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#161B2E", borderColor: "#1F293D" }} />
-                  <Bar dataKey="count" fill="#0D9488" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Outliers By Feature */}
-          <div className="glass-panel p-5 rounded-2xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Outliers Count per Feature</h3>
-              <p className="text-[11px] text-slate-400">Total values falling outside standard 1.5 * IQR bounds</p>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={outliersChartData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
-                  <XAxis type="number" stroke="#475569" fontSize={10} tickLine={false} />
-                  <YAxis type="category" dataKey="name" stroke="#475569" fontSize={10} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#161B2E", borderColor: "#1F293D" }} />
-                  <Bar dataKey="count" fill="#F43F5E" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderPerformanceProfile = () => {
-    if (performanceLoading) {
-      return (
-        <div className="h-64 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
-          Loading performance metrics...
-        </div>
-      );
-    }
-    if (!performanceProfile) return null;
-
-    const latData = [
-      { name: "Min", val: performanceProfile.latency.min },
-      { name: "P50", val: performanceProfile.latency.p50 },
-      { name: "Mean", val: performanceProfile.latency.mean },
-      { name: "P95", val: performanceProfile.latency.p95 },
-      { name: "P99", val: performanceProfile.latency.p99 },
-      { name: "Max", val: performanceProfile.latency.max }
-    ];
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Avg Throughput</span>
-            <p className="text-2xl font-bold text-teal-400 mt-1.5">{performanceProfile.throughput.rps_1m} RPS</p>
-            <p className="text-[10px] text-slate-500 mt-1">Last 1 minute average</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">P95 Latency</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{performanceProfile.latency.p95} ms</p>
-            <p className="text-[10px] text-slate-500 mt-1">95% of queries execute faster</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Mean CPU Util</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{performanceProfile.cpu.mean_pct}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">Peak: {performanceProfile.cpu.peak_pct}%</p>
-          </div>
-          <div className="glass-panel p-4.5 rounded-2xl">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Memory RSS</span>
-            <p className="text-2xl font-bold text-white mt-1.5">{performanceProfile.memory.mean_mb} MB</p>
-            <p className="text-[10px] text-slate-500 mt-1">Peak: {performanceProfile.memory.peak_mb} MB</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Latency Percentiles */}
-          <div className="lg:col-span-2 glass-panel p-5 rounded-2xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Latency Percentiles & Boundaries</h3>
-              <p className="text-[11px] text-slate-400">Execution time profile computed across recent production requests</p>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={latData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" vertical={false} />
-                  <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={10} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#161B2E", borderColor: "#1F293D" }} />
-                  <Bar dataKey="val" fill="#0D9488" radius={[4, 4, 0, 0]}>
-                    {latData.map((entry, index) => {
-                      let fill = "#0D9488";
-                      if (entry.name === "P95") fill = "#F59E0B";
-                      if (entry.name === "P99" || entry.name === "Max") fill = "#F43F5E";
-                      return <Cell key={`cell-${index}`} fill={fill} />;
-                    })}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* CPU & Memory Health */}
-          <div className="glass-panel p-5 rounded-2xl space-y-6 flex flex-col justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Inference Server Resources</h3>
-              <p className="text-[11px] text-slate-400">Live compute constraints recorded during execution</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-400">CPU Load</span>
-                  <span className="text-white">{performanceProfile.cpu.mean_pct}%</span>
-                </div>
-                <div className="h-2 bg-slate-900 rounded-full overflow-hidden border border-darkBorder/40">
-                  <div 
-                    className="bg-teal-500 h-full transition-all duration-300" 
-                    style={{ width: `${Math.min(performanceProfile.cpu.mean_pct, 100)}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-500">Max limit: 100% of single core allocation</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-400">Memory Allocation</span>
-                  <span className="text-white">{performanceProfile.memory.mean_mb} MB</span>
-                </div>
-                <div className="h-2 bg-slate-900 rounded-full overflow-hidden border border-darkBorder/40">
-                  <div 
-                    className="bg-cyan-500 h-full transition-all duration-300" 
-                    style={{ width: `${Math.min((performanceProfile.memory.mean_mb / 512) * 100, 100)}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-500">Peak consumption: {performanceProfile.memory.peak_mb} MB</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderDriftAnalysis = () => {
-    if (driftLoading) {
-      return (
-        <div className="h-64 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
-          Loading drift analysis...
-        </div>
-      );
-    }
-    if (!driftAnalysis) return null;
-
-    if (!selectedDriftFeature && driftAnalysis.feature_drift.length > 0) {
-      setSelectedDriftFeature(driftAnalysis.feature_drift[0].name);
-    }
-
-    const currentFeatureDrift = driftAnalysis.feature_drift.find((fd: any) => fd.name === selectedDriftFeature);
-    
-    const featureDistChartData = currentFeatureDrift?.distribution.labels.map((label: string, idx: number) => ({
-      name: label,
-      baseline: (currentFeatureDrift.distribution.baseline[idx] * 100).toFixed(1),
-      production: (currentFeatureDrift.distribution.production[idx] * 100).toFixed(1)
-    })) || [];
-
-    const confDistChartData = driftAnalysis.target_drift.confidence_drift.distribution.labels.map((label: string, idx: number) => ({
-      name: label,
-      baseline: (driftAnalysis.target_drift.confidence_drift.distribution.baseline[idx] * 100).toFixed(1),
-      production: (driftAnalysis.target_drift.confidence_drift.distribution.production[idx] * 100).toFixed(1)
-    }));
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-            <div className="space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Target Classification Drift</span>
-              <h4 className="text-base font-bold text-white">Predictions Output Distribution (Target Drift)</h4>
-            </div>
-            <div className="flex items-baseline justify-between mt-4">
-              <div>
-                <span className="text-[10px] text-slate-400 block">Population Stability Index (PSI)</span>
-                <span className="text-2xl font-bold text-white">{driftAnalysis.target_drift.class_drift.psi_score}</span>
-              </div>
-              <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase border
-                ${driftAnalysis.target_drift.class_drift.verdict === "critical" 
-                  ? "bg-rose-500/10 border-rose-500/30 text-rose-400" 
-                  : driftAnalysis.target_drift.class_drift.verdict === "warning"
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                }`}>
-                {driftAnalysis.target_drift.class_drift.verdict}
-              </span>
-            </div>
-          </div>
-
-          <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between">
-            <div className="space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Confidence Score Drift</span>
-              <h4 className="text-base font-bold text-white">Confidence Score Distribution Drift</h4>
-            </div>
-            <div className="flex items-baseline justify-between mt-4">
-              <div className="flex gap-6">
-                <div>
-                  <span className="text-[10px] text-slate-400 block">KS Statistic</span>
-                  <span className="text-2xl font-bold text-white">{driftAnalysis.target_drift.confidence_drift.ks_statistic}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">PSI Score</span>
-                  <span className="text-2xl font-bold text-white">{driftAnalysis.target_drift.confidence_drift.psi_score}</span>
-                </div>
-              </div>
-              <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase border
-                ${driftAnalysis.target_drift.confidence_drift.verdict === "critical" 
-                  ? "bg-rose-500/10 border-rose-500/30 text-rose-400" 
-                  : driftAnalysis.target_drift.confidence_drift.verdict === "warning"
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                }`}>
-                {driftAnalysis.target_drift.confidence_drift.verdict}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass-panel p-5 rounded-2xl space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Feature Distribution Shift</h3>
-                <p className="text-[11px] text-slate-400">Baseline (Probing) vs Production (Live logs) histograms</p>
-              </div>
-              
-              <select
-                value={selectedDriftFeature}
-                onChange={(e) => setSelectedDriftFeature(e.target.value)}
-                className="bg-slate-900 border border-darkBorder rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-teal-500/50"
-              >
-                {driftAnalysis.feature_drift.map((fd: any) => (
-                  <option key={fd.name} value={fd.name}>{fd.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {currentFeatureDrift && (
-              <div className="flex gap-6 bg-slate-950/40 border border-darkBorder/40 p-3 rounded-xl text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-500">KS Statistic:</span>
-                  <strong className="text-white ml-1.5">{currentFeatureDrift.ks_statistic}</strong>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500">PSI Score:</span>
-                  <strong className="text-white ml-1.5">{currentFeatureDrift.psi_score}</strong>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500">Verdict:</span>
-                  <strong className={`ml-1.5 uppercase ${currentFeatureDrift.verdict === 'critical' ? 'text-rose-400' : currentFeatureDrift.verdict === 'warning' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {currentFeatureDrift.verdict}
-                  </strong>
-                </div>
-              </div>
-            )}
-
-            <div className="h-60">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={featureDistChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" vertical={false} />
-                  <XAxis dataKey="name" stroke="#475569" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={9} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#161B2E", borderColor: "#1F293D" }} />
-                  <Line type="monotone" dataKey="baseline" name="Training (LHS Baseline)" stroke="#0D9488" strokeWidth={1.5} dot={{ r: 2 }} />
-                  <Line type="monotone" dataKey="production" name="Production (Live Traffic)" stroke="#F43F5E" strokeWidth={1.5} dot={{ r: 2 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="glass-panel p-5 rounded-2xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Confidence Distribution Shift</h3>
-              <p className="text-[11px] text-slate-400">Baseline (Probing) vs Production (Live logs) histograms</p>
-            </div>
-
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={confDistChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" vertical={false} />
-                  <XAxis dataKey="name" stroke="#475569" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={9} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#161B2E", borderColor: "#1F293D" }} />
-                  <Line type="monotone" dataKey="baseline" name="Training (LHS Baseline)" stroke="#0D9488" strokeWidth={1.5} dot={{ r: 2 }} />
-                  <Line type="monotone" dataKey="production" name="Production (Live Traffic)" stroke="#F43F5E" strokeWidth={1.5} dot={{ r: 2 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderExplainability = () => {
-    if (globalLoading) {
-      return (
-        <div className="h-64 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
-          Calculating global feature importances via Kernel SHAP...
-        </div>
-      );
-    }
-
-    const globalData = globalExplain?.feature_importance || [];
-    const selectedPredLog = predictions.find(p => p.id === selectedPredId);
-    const breakdown = predExplanation?.breakdown || [];
-    
-    let summaryText = "";
-    if (predExplanation && selectedPredLog) {
-      const mostPos = breakdown[0]?.contribution > 0 ? breakdown[0] : null;
-      const mostNeg = [...breakdown].reverse().find((item: any) => item.contribution < 0);
-      
-      summaryText = `The model predicted Class ${selectedPredLog.predicted_class} with ${(selectedPredLog.confidence * 100).toFixed(1)}% confidence. The baseline expected output was ${(predExplanation.base_value * 100).toFixed(1)}%. `;
-      if (mostPos) {
-        summaryText += `Feature "${mostPos.feature}" (value: ${mostPos.value}) had the strongest positive influence, contributing +${(mostPos.contribution * 100).toFixed(1)}% confidence. `;
-      }
-      if (mostNeg) {
-        summaryText += `Feature "${mostNeg.feature}" (value: ${mostNeg.value}) had the strongest negative influence, subtracting ${Math.abs(mostNeg.contribution * 100).toFixed(1)}% confidence.`;
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Global Explainability Card */}
-          <div className="glass-panel p-5 rounded-2xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Global Feature Importance (SHAP)
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Mean absolute SHAP values calculated dynamically using Kernel SHAP over reference background runs
-              </p>
-            </div>
-            
-            {globalData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={globalData}
-                    margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      stroke="#475569"
-                      fontSize={9}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="feature"
-                      stroke="#475569"
-                      fontSize={9}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#161B2E",
-                        borderColor: "#1F293D",
-                        borderRadius: "8px",
-                        fontSize: "11px",
-                        color: "#f1f5f9",
-                      }}
-                    />
-                    <Bar dataKey="importance" fill="url(#tealCyanGradient)" radius={[0, 4, 4, 0]}>
-                      {globalData.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill="url(#tealCyanGradient)" />
-                      ))}
-                    </Bar>
-                    <defs>
-                      <linearGradient id="tealCyanGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#0D9488" />
-                        <stop offset="100%" stopColor="#22D3EE" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 rounded-xl border border-darkBorder/40">
-                <Sparkles className="h-8 w-8 text-slate-500 mb-2 animate-pulse" />
-                <span className="text-xs text-slate-400 font-medium">No background baseline metrics found</span>
-                <span className="text-[10px] text-slate-500 mt-1 max-w-[240px]">
-                  Ensure successful model baseline probe results exist to initialize SHAP coalitions.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Local Prediction Explanation Card */}
-          <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Prediction Explanation (Local SHAP)
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Feature contribution attribution towards the confidence of a specific output class
-                  </p>
-                </div>
-
-                {predictions.length > 0 && (
-                  <select
-                    value={selectedPredId || ""}
-                    onChange={(e) => setSelectedPredId(e.target.value)}
-                    className="bg-slate-950 border border-darkBorder rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-teal-500/50 max-w-xs font-mono"
-                  >
-                    {predictions.map((p, idx) => (
-                      <option key={p.id} value={p.id}>
-                        {idx + 1}. Class {p.predicted_class} ({new Date(p.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {explanationLoading ? (
-                <div className="h-56 flex items-center justify-center text-teal-400 animate-pulse font-semibold">
-                  Solving Kernel SHAP coalition weights...
-                </div>
-              ) : predExplanation ? (
-                <div className="space-y-4">
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        layout="vertical"
-                        data={breakdown}
-                        margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
-                        <XAxis
-                          type="number"
-                          stroke="#475569"
-                          fontSize={9}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="feature"
-                          stroke="#475569"
-                          fontSize={9}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#161B2E",
-                            borderColor: "#1F293D",
-                            borderRadius: "8px",
-                            fontSize: "11px",
-                            color: "#f1f5f9",
-                          }}
-                          formatter={(value: any, name: any, props: any) => [
-                            `${value > 0 ? '+' : ''}${value}`,
-                            `Contribution (Val: ${props.payload.value})`
-                          ]}
-                        />
-                        <Bar dataKey="contribution" radius={[4, 4, 4, 4]}>
-                          {breakdown.map((entry: any, index: number) => {
-                            const isPositive = entry.contribution > 0;
-                            return (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={isPositive ? "#EF4444" : "#10B981"} 
-                              />
-                            );
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="p-3 bg-slate-950/50 border border-darkBorder rounded-xl text-xs leading-relaxed text-slate-300">
-                    {summaryText}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-56 flex items-center justify-center text-slate-500 text-xs">
-                  Select a recent prediction class from the selector to break down feature attributions.
-                </div>
-              )}
-            </div>
-
-            {predExplanation && !explanationLoading && (
-              <div className="border-t border-darkBorder/60 pt-4 mt-2">
-                <div className="flex items-center justify-between text-xs font-semibold mb-2">
-                  <span className="text-slate-400">Base Expected Value: <strong className="text-slate-300 font-mono">{(predExplanation.base_value * 100).toFixed(1)}%</strong></span>
-                  <span className="text-teal-400">Predicted Confidence: <strong className="font-mono">{(predExplanation.prediction_value * 100).toFixed(1)}%</strong></span>
-                </div>
-                <div className="relative h-2 bg-slate-900 rounded-full overflow-hidden border border-darkBorder/40">
-                  <div 
-                    className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10" 
-                    style={{ left: `${predExplanation.base_value * 100}%` }}
-                    title="Base expected outcome value"
-                  />
-                  <div 
-                    className="bg-teal-500 h-full transition-all duration-300" 
-                    style={{ width: `${predExplanation.prediction_value * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Back button & title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors w-fit"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Registry
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight text-gradient">
-              {model.name}
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-darkBorder uppercase">
-              {model.framework}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 font-mono select-all">
-            ID: {model.id}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Simulation Controls */}
-          {isSimulating ? (
-            <div className="flex items-center gap-3 px-4.5 py-2.5 bg-slate-900 border border-darkBorder rounded-xl text-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+    <div className="space-y-10">
+      {/* 1. IDENTITY & HEADER (Level 2 Editorial Section) */}
+      <div className="border-b-2 border-line pb-6 space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Link
+              href="/registry"
+              className="badge-research hover:border-accent hover:text-accent cursor-pointer transition-colors w-fit"
+            >
+              ← MODEL REGISTRY
+            </Link>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-serif font-extrabold text-4xl sm:text-5xl text-paper tracking-tight">
+                {model.name}
+              </h1>
+              <span className="badge-research-finding">
+                {model.framework.toUpperCase()}
               </span>
-              <span className="text-slate-300 font-semibold font-mono">{simStatus}</span>
-              <div className="w-20 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-teal-500 h-1.5 transition-all duration-150" 
+              <span className="badge-research-baseline">
+                STATUS: {model.status.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-xs text-mute">
+              <span>MODEL_ID:</span>
+              <code className="text-paper font-bold">{model.id}</code>
+            </div>
+          </div>
+
+          {/* Traffic Simulation Control (Level 4 Utility Component) */}
+          {isSimulating ? (
+            <div className="utility-panel-amber p-3 space-y-2 shrink-0 max-w-xs">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                <span className="font-mono text-xs font-bold text-paper">{simStatus}</span>
+              </div>
+              <div className="w-full bg-ink border border-line h-2 overflow-hidden">
+                <div
+                  className="bg-accent h-full transition-all duration-150"
                   style={{ width: `${(simulatedCount / simTotal) * 100}%` }}
                 />
               </div>
@@ -1021,525 +416,744 @@ export default function ModelDashboard() {
           ) : (
             <button
               onClick={handleSimulateTraffic}
-              className="flex items-center gap-2 px-4.5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] shadow-lg shadow-rose-500/15"
+              className="btn-physical-accent shrink-0"
             >
-              <Play className="h-4 w-4 fill-current text-white" />
+              <Play className="h-4 w-4 fill-current" />
               <span>Simulate Drift Traffic</span>
             </button>
           )}
-
-          {/* Glowing Fingerprint Graphic card */}
-          <Link
-            href={`/models/${model.id}/fingerprint`}
-            className="relative flex items-center gap-3.5 pl-4 pr-5 py-2.5 bg-slate-900 border border-teal-500/20 hover:border-teal-500/50 hover:bg-slate-850 rounded-xl transition-all duration-300 group overflow-hidden shadow-lg shadow-teal-500/5 select-none"
-          >
-            {/* Animated Laser Scan Bar */}
-            <div className="absolute top-2 left-4 right-4 h-[1.5px] bg-teal-400/80 shadow-[0_0_8px_rgba(20,184,166,0.8)] scan-line pointer-events-none" />
-            
-            <div className="relative p-1.5 rounded-lg bg-teal-950/60 border border-teal-500/20 text-teal-400 group-hover:text-teal-350 transition-colors">
-              <svg className="w-8 h-8 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22v-4" />
-                <path d="M14 14.87a4 4 0 0 0-4 0" />
-                <path d="M12 2a10 10 0 0 0-10 10c0 1.25.25 2.44.71 3.53" />
-                <path d="M22 12A10 10 0 0 0 12 2" />
-                <path d="M8 12a4 4 0 0 1 8 0" />
-                <path d="M12 6a6 6 0 0 0-6 6c0 1.38.47 2.66 1.25 3.67" />
-                <path d="M18.75 15.67A6 6 0 0 0 18 12" />
-                <path d="M12 18a2 2 0 0 0 2-2c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1a2 2 0 0 0 2 2z" />
-              </svg>
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-[9px] text-teal-400 uppercase tracking-widest font-mono font-bold group-hover:text-teal-350">
-                Biometric Signature
-              </span>
-              <span className="text-xs font-semibold text-white mt-0.5 font-mono">
-                {model.signature ? `${model.signature.substring(0, 14)}` : "Extracting..."}
-              </span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-teal-400 transition-colors ml-1" />
-          </Link>
         </div>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Mean Confidence */}
-        <div className="glass-panel p-4.5 rounded-2xl">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold tracking-wider uppercase">
-              Mean Confidence
-            </span>
-            <Compass className="h-4.5 w-4.5 text-teal-400" />
-          </div>
-          <p className="text-2xl font-bold text-white mt-1.5">
-            {predictions.length > 0
-              ? (predictions.reduce((acc, curr) => acc + curr.confidence, 0) / predictions.length).toFixed(3)
-              : "N/A"}
-          </p>
-        </div>
-
-        {/* Novelty Rate % */}
-        <div className="glass-panel p-4.5 rounded-2xl">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold tracking-wider uppercase">
-              Novelty Rate
-            </span>
-            <Percent className="h-4.5 w-4.5 text-cyan-400" />
-          </div>
-          <p className="text-2xl font-bold text-white mt-1.5">
-            {noveltyRatePercent}%
-          </p>
-        </div>
-
-        {/* Active Alerts count */}
-        <div className="glass-panel p-4.5 rounded-2xl border-rose-500/15">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold tracking-wider uppercase">
-              Active Alerts
-            </span>
-            <AlertOctagon className="h-4.5 w-4.5 text-rose-400" />
-          </div>
-          <p className="text-2xl font-bold text-white mt-1.5">
-            {activeAlertsCount}
-          </p>
-        </div>
-
-        {/* Total Predictions */}
-        <div className="glass-panel p-4.5 rounded-2xl">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold tracking-wider uppercase">
-              Total Predictions
-            </span>
-            <Activity className="h-4.5 w-4.5 text-emerald-400" />
-          </div>
-          <p className="text-2xl font-bold text-white mt-1.5">
-            {totalPredictionsCount}
-          </p>
-        </div>
-      </div>
-
-      {/* Tabs Switcher Bar */}
-      <div className="flex border-b border-darkBorder/60 gap-1 overflow-x-auto pb-px">
-        {[
-          { id: "monitoring", label: "Monitoring Dashboard", icon: Activity },
-          { id: "graph", label: "Architecture Graph", icon: Compass },
-          { id: "health", label: "Dataset Health", icon: Database },
-          { id: "performance", label: "Inference Performance", icon: Cpu },
-          { id: "drift_analysis", label: "Drift Analysis", icon: AlertTriangle },
-          { id: "explainability", label: "Explainability (SHAP)", icon: Sparkles },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm transition-all duration-200 whitespace-nowrap -mb-px
-                ${isActive
-                  ? "border-teal-500 text-teal-400 bg-teal-500/5"
-                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
-                }`}
-            >
-              <Icon className={`h-4 w-4 ${isActive ? "text-teal-400" : "text-slate-400"}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Conditionally Render Tab Contents */}
-      {activeTab === "monitoring" && (
-        <div className="space-y-6">
-          {/* Observability Charts Panel */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Panel 1: Novelty Score Timeline */}
-            <div className="glass-panel p-5 rounded-2xl space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Novelty Score Timeline
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Penultimate layer FAISS activation distance (last 100 inferences)
-                </p>
-              </div>
-
-              <div className="h-64 w-full">
-                {timelineData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" vertical={false} />
-                      <XAxis
-                        dataKey="created_at"
-                        stroke="#475569"
-                        fontSize={9}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#161B2E",
-                          borderColor: "#1F293D",
-                          borderRadius: "8px",
-                          fontSize: "11px",
-                          color: "#f1f5f9",
-                        }}
-                      />
-                      {/* Baseline distance reference line */}
-                      <ReferenceLine
-                        y={baselineMean}
-                        stroke="#64748B"
-                        strokeWidth={1}
-                        label={{
-                          value: "baseline mean",
-                          fill: "#94A3B8",
-                          fontSize: 9,
-                          position: "insideBottomRight",
-                        }}
-                      />
-                      {/* 3-sigma novelty threshold reference line */}
-                      <ReferenceLine
-                        y={threshold}
-                        stroke="#F43F5E"
-                        strokeDasharray="4 4"
-                        strokeWidth={1.5}
-                        label={{
-                          value: "novelty limit (mean+3σ)",
-                          fill: "#F43F5E",
-                          fontSize: 9,
-                          position: "insideTopRight",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="faiss_distance"
-                        stroke="#0D9488"
-                        strokeWidth={1.5}
-                        dot={<CustomDot />}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 rounded-xl border border-darkBorder/40">
-                    <Clock className="h-8 w-8 text-slate-600 mb-2" />
-                    <span className="text-xs text-slate-400 font-medium">No inference events yet</span>
-                    <span className="text-[10px] text-slate-500 mt-1 max-w-[240px]">
-                      Send live predictions via the API to plot the novelty distance timeline.
-                    </span>
-                  </div>
-                )}
-              </div>
+      {/* 2. BEHAVIORAL FINGERPRINT BANNER (Unboxed Editorial Overview) */}
+      <div className="bg-panel/40 border-2 border-line p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 border-2 border-line bg-ink shrink-0">
+              <FingerprintIcon className="h-6 w-6 text-paper" />
             </div>
-
-            {/* Panel 2: Drift Scores per Feature */}
-            <div className="glass-panel p-5 rounded-2xl space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Feature Drift (KS Statistic)
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Kolmogorov-Smirnov distance on inference distributions against baseline
-                </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="badge-research-finding">BEHAVIORAL FINGERPRINT</span>
+                <span className="badge-research">1,000 PROBES SWEEP</span>
+                <span className="badge-research-baseline">FAISS INDEX ACTIVE</span>
               </div>
-
-              <div className="h-64 w-full">
-                {featureDriftData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={featureDriftData}
-                      margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1F293D" horizontal={false} />
-                      <XAxis
-                        type="number"
-                        domain={[0, 1.0]}
-                        stroke="#475569"
-                        fontSize={9}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        stroke="#475569"
-                        fontSize={9}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#161B2E",
-                          borderColor: "#1F293D",
-                          borderRadius: "8px",
-                          fontSize: "11px",
-                          color: "#f1f5f9",
-                        }}
-                      />
-                      <ReferenceLine
-                        x={0.1}
-                        stroke="#F59E0B"
-                        strokeDasharray="3 3"
-                        label={{
-                          value: "Warning (0.1)",
-                          fill: "#F59E0B",
-                          fontSize: 8,
-                          position: "insideTopRight",
-                        }}
-                      />
-                      <ReferenceLine
-                        x={0.2}
-                        stroke="#F43F5E"
-                        strokeDasharray="3 3"
-                        label={{
-                          value: "Critical (0.2)",
-                          fill: "#F43F5E",
-                          fontSize: 8,
-                          position: "insideTopRight",
-                        }}
-                      />
-                      <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-                        {featureDriftData.map((entry, index) => {
-                          let fill = "#0D9488"; // normal
-                          if (entry.score >= 0.2) {
-                            fill = "#F43F5E"; // critical
-                          } else if (entry.score >= 0.1) {
-                            fill = "#F59E0B"; // warning
-                          }
-                          return <Cell key={`cell-${index}`} fill={fill} />;
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 rounded-xl border border-darkBorder/40">
-                    <Compass className="h-8 w-8 text-slate-600 mb-2" />
-                    <span className="text-xs text-slate-400 font-medium">No drift evaluations recorded</span>
-                    <span className="text-[10px] text-slate-500 mt-1 max-w-[240px]">
-                      Drift is evaluated automatically every 50 predictions.
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Active Alerts Panel */}
-          <div className="glass-panel rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-darkBorder">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Active Observability Alerts
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Current active breaches of statistical drift or novelty thresholds
+              <p className="font-serif font-bold text-2xl text-paper mt-1 tracking-tight">
+                {model.signature ? `${model.signature.substring(0, 16)}...` : "Extracting Signature..."}
               </p>
             </div>
-
-            {alerts.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-darkBorder">
-                  <thead className="bg-slate-900/40">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Alert Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Severity
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Trigger Details
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Timestamp
-                      </th>
-                      <th className="relative px-6 py-3">
-                        <span className="sr-only">Resolve</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-darkBorder">
-                    {alerts.map((alert) => (
-                      <tr key={alert.id} className="hover:bg-darkHover/20">
-                        <td className="px-6 py-4.5 whitespace-nowrap">
-                          <span className="font-mono text-xs font-semibold text-white bg-slate-900 border border-darkBorder px-2.5 py-1 rounded">
-                            {alert.alert_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4.5 whitespace-nowrap">
-                          {alert.severity === "critical" ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded font-semibold">
-                              <AlertOctagon className="h-3 w-3" />
-                              Critical
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded font-semibold">
-                              <AlertTriangle className="h-3 w-3" />
-                              Warning
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4.5 text-xs text-slate-300">
-                          {alert.alert_type === "LATENT_NOVELTY" ? (
-                            <span>
-                              Penultimate layer distance exceeded threshold: distance{" "}
-                              <strong className="text-rose-400">
-                                {alert.metadata.distance !== undefined && alert.metadata.distance !== null 
-                                  ? Number(alert.metadata.distance).toFixed(4) 
-                                  : "N/A"}
-                              </strong>
-                            </span>
-                          ) : (
-                            <div className="space-y-1">
-                              {alert.metadata.drifted_features && alert.metadata.drifted_features.length > 0 ? (
-                                alert.metadata.drifted_features.map((df: any, idx: number) => (
-                                  <div key={idx} className="flex flex-wrap items-center gap-1">
-                                    <span>Feature</span>
-                                    <strong className="text-amber-400">{df.feature_name}</strong>
-                                    <span>drifted:</span>
-                                    <span>KS =</span>
-                                    <strong className="text-rose-400 font-mono">
-                                      {df.ks_statistic !== undefined && df.ks_statistic !== null 
-                                        ? Number(df.ks_statistic).toFixed(4) 
-                                        : "N/A"}
-                                    </strong>
-                                    <span className="text-slate-500 text-[10px]">(threshold: {df.severity === 'critical' ? '0.30' : '0.15'})</span>
-                                    <span className="text-slate-500 mx-0.5">|</span>
-                                    <span>PSI =</span>
-                                    <strong className="text-rose-400 font-mono">
-                                      {df.psi_score !== undefined && df.psi_score !== null 
-                                        ? Number(df.psi_score).toFixed(4) 
-                                        : "N/A"}
-                                    </strong>
-                                    <span className="text-slate-500 text-[10px]">(threshold: {df.severity === 'critical' ? '0.25' : '0.10'})</span>
-                                  </div>
-                                ))
-                              ) : (
-                                <span>Feature exceeded drift threshold</span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4.5 whitespace-nowrap text-xs text-slate-400">
-                          {new Date(alert.created_at).toLocaleTimeString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-6 py-4.5 whitespace-nowrap text-right text-xs font-medium">
-                          <button
-                            onClick={() => handleResolveAlert(alert.id)}
-                            disabled={resolvingId === alert.id}
-                            className="px-3.5 py-1.5 bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:border-teal-500/50 rounded-lg transition-colors font-medium disabled:opacity-50"
-                          >
-                            {resolvingId === alert.id ? "Resolving..." : "Resolve"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="py-12 text-center max-w-sm mx-auto">
-                <div className="p-3 w-fit mx-auto rounded-full bg-emerald-500/10 text-emerald-400 mb-3 border border-emerald-500/20">
-                  <ShieldCheck className="h-5.5 w-5.5" />
-                </div>
-                <h4 className="text-sm font-semibold text-white mb-0.5">No Active Alerts</h4>
-                <p className="text-xs text-slate-400">
-                  Model parameters are stable and within acceptable bounds.
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Model Architecture Section */}
-          <div className="glass-panel rounded-2xl overflow-hidden mt-6">
-            <div className="px-6 py-4 border-b border-darkBorder flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Extracted Model Architecture
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Automatically analyzed internal layers and structural topology of the model
-                </p>
-              </div>
-              {model.architecture?.layers && (
-                <span className="text-[10px] bg-teal-500/10 border border-teal-500/30 text-teal-400 font-mono px-2 py-0.5 rounded font-semibold">
-                  {model.architecture.layers.length} Layers Found
-                </span>
-              )}
-            </div>
-            
-            {model.architecture?.layers && model.architecture.layers.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-darkBorder">
-                  <thead className="bg-slate-900/40">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Layer Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Type / Class
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Configuration Details
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-darkBorder">
-                    {model.architecture.layers.map((layer: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-darkHover/10">
-                        <td className="px-6 py-4.5 whitespace-nowrap text-xs font-mono text-white">
-                          {layer.name || `layer_${idx}`}
-                        </td>
-                        <td className="px-6 py-4.5 whitespace-nowrap">
-                          <span className="text-xs bg-slate-950 border border-darkBorder px-2.5 py-1 rounded font-semibold text-teal-400">
-                            {layer.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4.5 text-xs text-slate-300 font-mono">
-                          {layer.details || "N/A"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : model.architecture?.error ? (
-              <div className="py-8 px-6 text-center max-w-md mx-auto">
-                <div className="p-2 w-fit mx-auto rounded-full bg-rose-500/10 text-rose-400 mb-2 border border-rose-500/20">
-                  <AlertTriangle className="h-4.5 w-4.5" />
-                </div>
-                <h4 className="text-xs font-semibold text-white mb-0.5">Architecture Analysis Failed</h4>
-                <p className="text-[11px] text-slate-400 font-mono text-left bg-slate-950/40 p-2.5 rounded border border-darkBorder max-h-32 overflow-y-auto">
-                  {model.architecture.error}
-                </p>
-              </div>
-            ) : (
-              <div className="py-10 text-center max-w-sm mx-auto">
-                <div className="p-3 w-fit mx-auto rounded-full bg-slate-800 text-slate-500 mb-3 border border-darkBorder">
-                  <Compass className="h-5.5 w-5.5" />
-                </div>
-                <h4 className="text-sm font-semibold text-white mb-0.5">No Architecture Extracted</h4>
-                <p className="text-xs text-slate-400">
-                  Model architecture extraction is supported for PyTorch and TensorFlow/Keras frameworks.
-                </p>
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopySignature}
+              className="btn-physical text-xs py-1 px-3"
+            >
+              {copiedHash ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedHash ? "Copied" : "Copy Signature"}
+            </button>
+            <Link
+              href={`/models/${model.id}/fingerprint`}
+              className="btn-physical-accent text-xs py-1 px-3"
+            >
+              Full Analysis →
+            </Link>
           </div>
         </div>
-      )}
 
-      {activeTab === "graph" && renderArchitectureGraph()}
-      {activeTab === "health" && renderDatasetHealth()}
-      {activeTab === "performance" && renderPerformanceProfile()}
-      {activeTab === "drift_analysis" && renderDriftAnalysis()}
-      {activeTab === "explainability" && renderExplainability()}
+        <p className="explainer max-w-3xl">
+          Decision-boundary baseline compiled from 1,000 synthetic Latin Hypercube probe vectors. Live predictions compare against this FAISS activation index.
+        </p>
+
+        {/* Collapsible raw details */}
+        <div className="pt-2 border-t border-line">
+          <button
+            onClick={() => setShowRawParams(!showRawParams)}
+            className="label-mono hover:text-accent flex items-center gap-1 cursor-pointer"
+          >
+            {showRawParams ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {showRawParams ? "Hide Advanced Parameters" : "View Advanced Signature & Parameter Hashes"}
+          </button>
+          {showRawParams && (
+            <div className="mt-3 bg-ink border-2 border-line p-3 font-mono text-xs space-y-1 overflow-x-auto text-paper">
+              <p><strong className="text-accent">FULL_SHA256_SIGNATURE:</strong> {model.signature || "N/A"}</p>
+              <p><strong className="text-mute">BASELINE_MEAN_DISTANCE:</strong> {baselineMean.toFixed(4)}</p>
+              <p><strong className="text-mute">BASELINE_STD_DISTANCE:</strong> {baselineStd.toFixed(4)}</p>
+              <p><strong className="text-mute">NOVELTY_THRESHOLD_3SIGMA:</strong> {threshold.toFixed(4)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. LEVEL 3 — UNBOXED INLINE METRIC STRIP */}
+      <div className="space-y-2">
+        <span className="badge-research">LIVE OBSERVABILITY READOUT</span>
+        <div className="metric-strip">
+          <div className="inline-metric">
+            <span className="label-mono block text-mute">CERTAINTY</span>
+            <p className="font-display text-3xl text-paper">
+              {predictions.length > 0
+                ? (predictions.reduce((acc, curr) => acc + curr.confidence, 0) / predictions.length).toFixed(3)
+                : "N/A"}
+            </p>
+            <p className="explainer">Mean Confidence</p>
+          </div>
+
+          <div className="inline-metric">
+            <span className="label-mono block text-accent font-bold">NOVELTY RATE</span>
+            <p className="font-display text-3xl text-paper">{noveltyRatePercent}%</p>
+            <p className="explainer">Out-of-distribution</p>
+          </div>
+
+          <div className="inline-metric">
+            <span className={activeAlertsCount > 0 ? "label-mono block text-rose-600 font-bold" : "label-mono block text-mute"}>
+              ALERT BREACHES
+            </span>
+            <p className="font-display text-3xl text-paper">{activeAlertsCount}</p>
+            <p className="explainer">Active unresolved</p>
+          </div>
+
+          <div className="inline-metric">
+            <span className="label-mono block text-mute">TRAFFIC COUNT</span>
+            <p className="font-display text-3xl text-paper">{totalPredictionsCount}</p>
+            <p className="explainer font-mono">Predictions logged</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. WORKSPACE STICKY ANCHOR NAVIGATION */}
+      <div className="sticky top-16 z-40 bg-ink border-2 border-line p-2 flex items-center gap-2 overflow-x-auto">
+        <span className="badge-research shrink-0">ANCHORS:</span>
+        {[
+          { key: "monitoring", label: "01 // Novelty & Monitoring" },
+          { key: "health", label: "02 // Dataset Health" },
+          { key: "performance", label: "03 // Performance" },
+          { key: "drift_analysis", label: "04 // Drift Analysis" },
+          { key: "explainability", label: "05 // SHAP Explanations" },
+        ].map((anchor) => (
+          <button
+            key={anchor.key}
+            onClick={() => scrollToSection(anchor.key)}
+            className={`font-mono text-xs font-bold uppercase px-3 py-1 border-2 border-line whitespace-nowrap transition-colors ${
+              expandedSections[anchor.key]
+                ? "bg-accent text-ink"
+                : "bg-panel/40 text-paper hover:bg-ink"
+            }`}
+          >
+            {anchor.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 5. WORKSPACE ACCORDION SECTIONS */}
+
+      {/* SECTION 01: MONITORING DASHBOARD (Level 1 Research Windows) */}
+      <section id="section-monitoring" className="space-y-6 scroll-mt-32">
+        <div className="border-b-2 border-line pb-2 flex items-center justify-between">
+          <button
+            onClick={() => toggleSection("monitoring")}
+            className="flex items-center gap-3 text-left group cursor-pointer"
+          >
+            <span className="font-mono text-lg font-bold text-accent">
+              {expandedSections.monitoring ? "▼" : "▶"}
+            </span>
+            <div>
+              <span className="badge-research-finding">SECTION 01</span>
+              <h2 className="font-serif font-bold text-2xl text-paper group-hover:text-accent transition-colors">
+                Real-Time Novelty &amp; Feature Drift Analysis
+              </h2>
+            </div>
+          </button>
+          <span className="label-mono">LIVE FEED</span>
+        </div>
+
+        {expandedSections.monitoring && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LEVEL 1 RESEARCH WINDOW: NOVELTY TIMELINE */}
+              <div className="research-window">
+                <div className="window-titlebar">
+                  <div className="window-dots">
+                    <span className="window-dot bg-rose-400" />
+                    <span className="window-dot bg-amber-400" />
+                    <span className="window-dot bg-emerald-400" />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-paper">RESEARCH_WINDOW // NOVELTY_DISTANCE</span>
+                  <span className="badge-research">FAISS k-NN</span>
+                </div>
+
+                <div className="window-content space-y-4">
+                  <ChartFrameHeader
+                    title="Penultimate Activation Distance Timeline"
+                    what="Nearest-neighbor FAISS distance for each live prediction vector."
+                    why="Spikes above the 3σ line signal traffic landing in unhandled confidence regions."
+                  />
+
+                  <div className="h-64 w-full">
+                    {timelineData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                          <XAxis dataKey="created_at" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                          <YAxis stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <ReferenceLine y={baselineMean} stroke={MUTE} strokeWidth={1} label={{ value: "Mean", fill: MUTE, fontSize: 9 }} />
+                          <ReferenceLine y={threshold} stroke={ROSE} strokeDasharray="4 4" strokeWidth={1.5} label={{ value: "Limit (3σ)", fill: ROSE, fontSize: 9 }} />
+                          <Line type="monotone" dataKey="faiss_distance" stroke={PAPER} strokeWidth={1.5} dot={<CustomDot />} activeDot={{ r: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-panel/30 border border-line">
+                        <Clock className="h-8 w-8 text-mute mb-2" />
+                        <span className="font-mono text-xs text-paper font-bold">No predictions logged yet</span>
+                        <span className="explainer mt-1">Run the traffic simulator above to plot live novelty events.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-line flex items-center justify-between font-mono text-xs">
+                    <span>Baseline Mean: <strong className="text-paper">{baselineMean.toFixed(3)}</strong></span>
+                    <span>Threshold Limit: <strong className="text-rose-600 font-bold">{threshold.toFixed(3)}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* LEVEL 1 RESEARCH WINDOW: FEATURE DRIFT KS CHART */}
+              <div className="research-window">
+                <div className="window-titlebar">
+                  <div className="window-dots">
+                    <span className="window-dot bg-rose-400" />
+                    <span className="window-dot bg-amber-400" />
+                    <span className="window-dot bg-emerald-400" />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-paper">RESEARCH_WINDOW // FEATURE_DRIFT_KS</span>
+                  <span className="badge-research">KS STATISTIC</span>
+                </div>
+
+                <div className="window-content space-y-4">
+                  <ChartFrameHeader
+                    title="Feature-Level KS Statistic Scores"
+                    what="Kolmogorov-Smirnov distance comparing probed baseline distributions against live traffic."
+                    why="Features crossing 0.10 (amber) or 0.20 (rose) have shifted significantly from training assumptions."
+                  />
+
+                  <div className="h-64 w-full">
+                    {featureDriftData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={featureDriftData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                          <XAxis type="number" domain={[0, 1.0]} stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                          <YAxis type="category" dataKey="name" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <ReferenceLine x={0.1} stroke={AMBER} strokeDasharray="3 3" />
+                          <ReferenceLine x={0.2} stroke={ROSE} strokeDasharray="3 3" />
+                          <Bar dataKey="score" radius={0}>
+                            {featureDriftData.map((entry, index) => {
+                              let fill = PAPER;
+                              if (entry.score >= 0.2) fill = ROSE;
+                              else if (entry.score >= 0.1) fill = AMBER;
+                              return <Cell key={`cell-${index}`} fill={fill} />;
+                            })}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-panel/30 border border-line">
+                        <Compass className="h-8 w-8 text-mute mb-2" />
+                        <span className="font-mono text-xs text-paper font-bold">No drift evaluations recorded</span>
+                        <span className="explainer mt-1">Evaluated automatically every 50 predictions.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-line flex items-center justify-between font-mono text-xs">
+                    <span>Warning Bound: <strong className="text-amber-600">0.10</strong></span>
+                    <span>Critical Bound: <strong className="text-rose-600 font-bold">0.20</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SIDE-BY-SIDE: ACTIVE ALERTS & EXTRACTED LAYER TOPOLOGY */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LEVEL 4 UTILITY PANEL: ACTIVE ALERTS */}
+              <div className="utility-panel space-y-3 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b-2 border-line pb-2">
+                    <div>
+                      <span className="badge-research-finding">ACTIVE ACTION ITEMS</span>
+                      <h3 className="font-serif font-bold text-lg text-paper">Active Observability Alerts ({alerts.length})</h3>
+                    </div>
+                    <span className="badge-research">{alerts.length} ALERTS</span>
+                  </div>
+
+                  {alerts.length > 0 ? (
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      {alerts.map((alertItem) => (
+                        <div
+                          key={alertItem.id}
+                          className={
+                            alertItem.severity === "critical"
+                              ? "utility-panel-rose p-3 space-y-2"
+                              : "utility-panel-amber p-3 space-y-2"
+                          }
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[10px] font-bold uppercase text-paper border border-line px-1.5 py-0.5 bg-ink">
+                              {alertItem.alert_type}
+                            </span>
+                            <span className={alertItem.severity === "critical" ? "badge-research border-rose-500 text-rose-700" : "badge-research border-amber-500 text-amber-700"}>
+                              {alertItem.severity.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div className="font-mono text-xs text-paper/90 space-y-1">
+                            {alertItem.alert_type === "LATENT_NOVELTY" ? (
+                              <p>
+                                Distance: <strong className="text-rose-700 font-bold">{alertItem.metadata.distance ? Number(alertItem.metadata.distance).toFixed(4) : "N/A"}</strong>
+                              </p>
+                            ) : (
+                              <div className="space-y-0.5 text-[11px]">
+                                {alertItem.metadata.drifted_features?.map((df: any, idx: number) => (
+                                  <p key={idx}>
+                                    Feature <strong className="text-amber-800">{df.feature_name}</strong>: KS = <strong className="text-rose-700">{df.ks_statistic ? Number(df.ks_statistic).toFixed(4) : "N/A"}</strong>, PSI = <strong>{df.psi_score ? Number(df.psi_score).toFixed(4) : "N/A"}</strong>.
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="pt-1.5 border-t border-line flex items-center justify-between">
+                            <span className="font-mono text-[10px] text-mute">
+                              {new Date(alertItem.created_at).toLocaleTimeString()}
+                            </span>
+                            <button
+                              onClick={() => handleResolveAlert(alertItem.id)}
+                              disabled={resolvingId === alertItem.id}
+                              className="btn-physical py-0.5 px-2 text-[10px]"
+                            >
+                              {resolvingId === alertItem.id ? "Resolving..." : "Resolve Alert ✓"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <ShieldCheck className="h-7 w-7 text-emerald-600 mx-auto mb-1.5" />
+                      <h4 className="font-serif font-bold text-sm text-paper">No Active Alerts</h4>
+                      <p className="explainer">Model inference behavior remains stable.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* LEVEL 2 EDITORIAL NOTEBOOK: EXTRACTED LAYER TOPOLOGY */}
+              <div className="border-2 border-line bg-ink p-4 space-y-3 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b-2 border-line pb-2">
+                    <div>
+                      <span className="badge-research-finding">NOTEBOOK DOCUMENT</span>
+                      <h3 className="font-serif font-bold text-lg text-paper">Extracted Layer Topology</h3>
+                    </div>
+                    {model.architecture?.layers && (
+                      <span className="badge-research">{model.architecture.layers.length} LAYERS</span>
+                    )}
+                  </div>
+
+                  {model.architecture?.layers && model.architecture.layers.length > 0 ? (
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {model.architecture.layers.map((layer: any, idx: number) => (
+                        <div key={idx} className="bg-panel/30 border border-line p-2.5 font-mono text-xs flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="badge-research font-bold text-[9px] shrink-0">L{idx}</span>
+                            <span className="font-bold text-paper truncate">{layer.name || `layer_${idx}`}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <code className="text-[11px] text-mute max-w-[160px] truncate">{layer.details || "Standard Layer"}</code>
+                            <span className="badge-research-finding text-[9px]">{layer.type}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 explainer font-mono">
+                      No extracted layer topology recorded for this artifact.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 02: DATASET HEALTH (Unboxed Editorial Layout + Level 3 Metric Strip) */}
+      <section id="section-health" className="space-y-6 scroll-mt-32 pt-6 border-t-2 border-line">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => toggleSection("health")}
+            className="flex items-center gap-3 text-left group cursor-pointer"
+          >
+            <span className="font-mono text-lg font-bold text-accent">
+              {expandedSections.health ? "▼" : "▶"}
+            </span>
+            <div>
+              <span className="badge-research">SECTION 02</span>
+              <h2 className="font-serif font-bold text-2xl text-paper group-hover:text-accent transition-colors">
+                Dataset Health &amp; Input Data Quality
+              </h2>
+            </div>
+          </button>
+          <span className="label-mono">PRODUCTION QUALITY</span>
+        </div>
+
+        {expandedSections.health && (
+          <div>
+            {datasetHealthLoading ? (
+              <div className="text-center py-12 font-mono text-xs font-bold animate-pulse">
+                Analyzing dataset health &amp; IQR outliers...
+              </div>
+            ) : datasetHealth ? (
+              <div className="space-y-6">
+                {/* Level 3 Inline Metric Strip */}
+                <div className="metric-strip">
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">NULL VALUES</span>
+                    <p className="font-display text-3xl text-paper">{datasetHealth.missing_values.percentage}%</p>
+                    <p className="explainer">{datasetHealth.missing_values.total_missing} missing values</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">DUPLICATES</span>
+                    <p className="font-display text-3xl text-paper">{datasetHealth.duplicates.percentage}%</p>
+                    <p className="explainer">{datasetHealth.duplicates.duplicate_count} duplicates</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-accent font-bold">OUTLIERS</span>
+                    <p className="font-display text-3xl text-paper">{datasetHealth.outliers.percentage}%</p>
+                    <p className="explainer">{datasetHealth.outliers.total_outliers} IQR outliers</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">CLASS ENTROPY</span>
+                    <p className="font-display text-3xl text-paper">{datasetHealth.class_imbalance.entropy}</p>
+                    <p className="explainer">Shannon scale</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="border-2 border-line p-5 space-y-4 bg-ink">
+                    <h3 className="font-serif font-bold text-lg text-paper">Class Balance Distribution</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={Object.entries(datasetHealth.class_imbalance.counts).map(([cls, cnt]) => ({ name: `Class ${cls}`, count: cnt }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                          <XAxis dataKey="name" stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                          <YAxis stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <Bar dataKey="count" fill={PAPER} radius={0} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-line p-5 space-y-4 bg-panel/30">
+                    <h3 className="font-serif font-bold text-lg text-paper">Outliers per Feature (IQR)</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={Object.entries(datasetHealth.outliers.by_feature).map(([feat, cnt]) => ({ name: feat, count: cnt }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                          <XAxis type="number" stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                          <YAxis type="category" dataKey="name" stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <Bar dataKey="count" fill={ROSE} radius={0} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 03: INFERENCE PERFORMANCE */}
+      <section id="section-performance" className="space-y-6 scroll-mt-32 pt-6 border-t-2 border-line">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => toggleSection("performance")}
+            className="flex items-center gap-3 text-left group cursor-pointer"
+          >
+            <span className="font-mono text-lg font-bold text-accent">
+              {expandedSections.performance ? "▼" : "▶"}
+            </span>
+            <div>
+              <span className="badge-research">SECTION 03</span>
+              <h2 className="font-serif font-bold text-2xl text-paper group-hover:text-accent transition-colors">
+                Inference Performance &amp; Latency Percentiles
+              </h2>
+            </div>
+          </button>
+          <span className="label-mono font-bold">LATENCY &amp; RPS</span>
+        </div>
+
+        {expandedSections.performance && (
+          <div>
+            {performanceLoading ? (
+              <div className="text-center py-12 font-mono text-xs font-bold animate-pulse">
+                Fetching inference latency percentiles...
+              </div>
+            ) : performanceProfile ? (
+              <div className="space-y-6">
+                <div className="metric-strip">
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">THROUGHPUT</span>
+                    <p className="font-display text-3xl text-paper">{performanceProfile.throughput.rps_1m} RPS</p>
+                    <p className="explainer">1-minute average</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-accent font-bold">P95 LATENCY</span>
+                    <p className="font-display text-3xl text-paper">{performanceProfile.latency.p95} ms</p>
+                    <p className="explainer">95th percentile</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">CPU LOAD</span>
+                    <p className="font-display text-3xl text-paper">{performanceProfile.cpu.mean_pct}%</p>
+                    <p className="explainer">Peak: {performanceProfile.cpu.peak_pct}%</p>
+                  </div>
+                  <div className="inline-metric">
+                    <span className="label-mono block text-mute">MEMORY RSS</span>
+                    <p className="font-display text-3xl text-paper">{performanceProfile.memory.mean_mb} MB</p>
+                    <p className="explainer">Peak: {performanceProfile.memory.peak_mb} MB</p>
+                  </div>
+                </div>
+
+                <div className="border-2 border-line p-5 space-y-4 bg-ink">
+                  <h3 className="font-serif font-bold text-lg text-paper">Latency Profile Across Percentiles</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={[
+                        { name: "Min", val: performanceProfile.latency.min },
+                        { name: "P50", val: performanceProfile.latency.p50 },
+                        { name: "Mean", val: performanceProfile.latency.mean },
+                        { name: "P95", val: performanceProfile.latency.p95 },
+                        { name: "P99", val: performanceProfile.latency.p99 },
+                        { name: "Max", val: performanceProfile.latency.max }
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                        <XAxis dataKey="name" stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                        <YAxis stroke={AXIS_STROKE} fontSize={10} tickLine={false} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        <Bar dataKey="val" fill={PAPER} radius={0}>
+                          <Cell fill={PAPER} />
+                          <Cell fill={PAPER} />
+                          <Cell fill={PAPER} />
+                          <Cell fill={AMBER} />
+                          <Cell fill={ROSE} />
+                          <Cell fill={ROSE} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 04: DRIFT ANALYSIS */}
+      <section id="section-drift_analysis" className="space-y-6 scroll-mt-32 pt-6 border-t-2 border-line">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => toggleSection("drift_analysis")}
+            className="flex items-center gap-3 text-left group cursor-pointer"
+          >
+            <span className="font-mono text-lg font-bold text-accent">
+              {expandedSections.drift_analysis ? "▼" : "▶"}
+            </span>
+            <div>
+              <span className="badge-research">SECTION 04</span>
+              <h2 className="font-serif font-bold text-2xl text-paper group-hover:text-accent transition-colors">
+                Statistical Drift Analysis (KS &amp; PSI)
+              </h2>
+            </div>
+          </button>
+          <span className="label-mono">DISTRIBUTION SHIFT</span>
+        </div>
+
+        {expandedSections.drift_analysis && (
+          <div>
+            {driftLoading ? (
+              <div className="text-center py-12 font-mono text-xs font-bold animate-pulse">
+                Calculating distribution shift (KS &amp; PSI)...
+              </div>
+            ) : driftAnalysis ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="border-2 border-line p-5 space-y-3 bg-panel/30">
+                    <span className="badge-research-finding font-bold">TARGET DRIFT</span>
+                    <h4 className="font-serif font-bold text-xl text-paper">Target Classification Output Shift</h4>
+                    <div className="flex items-baseline justify-between pt-2">
+                      <div>
+                        <span className="label-mono block text-mute">PSI SCORE</span>
+                        <span className="font-display text-3xl text-paper">{driftAnalysis.target_drift.class_drift.psi_score}</span>
+                      </div>
+                      <span className="badge-research border-2 font-bold uppercase">
+                        {driftAnalysis.target_drift.class_drift.verdict}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-line p-5 space-y-3 bg-ink">
+                    <span className="badge-research-finding font-bold">CONFIDENCE DRIFT</span>
+                    <h4 className="font-serif font-bold text-xl text-paper">Output Certainty Distribution Shift</h4>
+                    <div className="flex items-baseline justify-between pt-2 font-mono">
+                      <div>
+                        <span className="label-mono block text-mute">KS STATISTIC</span>
+                        <span className="font-display text-3xl text-paper">{driftAnalysis.target_drift.confidence_drift.ks_statistic}</span>
+                      </div>
+                      <span className="badge-research border-2 font-bold uppercase">
+                        {driftAnalysis.target_drift.confidence_drift.verdict}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 05: SHAP EXPLAINABILITY (Level 1 Research Windows) */}
+      <section id="section-explainability" className="space-y-6 scroll-mt-32 pt-6 border-t-2 border-line">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => toggleSection("explainability")}
+            className="flex items-center gap-3 text-left group cursor-pointer"
+          >
+            <span className="font-mono text-lg font-bold text-accent">
+              {expandedSections.explainability ? "▼" : "▶"}
+            </span>
+            <div>
+              <span className="badge-research-finding">SECTION 05</span>
+              <h2 className="font-serif font-bold text-2xl text-paper group-hover:text-accent transition-colors">
+                Shapley Feature Attributions (Kernel SHAP)
+              </h2>
+            </div>
+          </button>
+          <span className="label-mono font-bold">EXPLAINABILITY</span>
+        </div>
+
+        {expandedSections.explainability && (
+          <div>
+            {globalLoading ? (
+              <div className="text-center py-12 font-mono text-xs font-bold animate-pulse">
+                Solving Kernel SHAP coalition weights across probes...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* LEVEL 1 RESEARCH WINDOW: GLOBAL SHAP */}
+                <div className="research-window">
+                  <div className="window-titlebar">
+                    <div className="window-dots">
+                      <span className="window-dot bg-rose-400" />
+                      <span className="window-dot bg-amber-400" />
+                      <span className="window-dot bg-emerald-400" />
+                    </div>
+                    <span className="font-mono text-xs font-bold text-paper">RESEARCH_WINDOW // GLOBAL_SHAP</span>
+                    <span className="badge-research">KERNEL SHAP</span>
+                  </div>
+
+                  <div className="window-content space-y-4">
+                    <ChartFrameHeader
+                      title="Global Feature Importance"
+                      what="Ranks overall feature influence across probe baseline samples."
+                      why="Identifies which features dominate model predictions at large."
+                    />
+
+                    {globalExplain?.feature_importance?.length > 0 ? (
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart layout="vertical" data={globalExplain.feature_importance}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                            <XAxis type="number" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                            <YAxis type="category" dataKey="feature" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="importance" fill={PAPER} radius={0} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center bg-panel/30 border border-line explainer font-mono">
+                        No background data found for SHAP evaluation.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* LEVEL 1 RESEARCH WINDOW: LOCAL SHAP */}
+                <div className="research-window">
+                  <div className="window-titlebar">
+                    <div className="window-dots">
+                      <span className="window-dot bg-rose-400" />
+                      <span className="window-dot bg-amber-400" />
+                      <span className="window-dot bg-emerald-400" />
+                    </div>
+                    <span className="font-mono text-xs font-bold text-paper">RESEARCH_WINDOW // LOCAL_SHAP</span>
+                    <span className="badge-research">PREDICTION BREAKDOWN</span>
+                  </div>
+
+                  <div className="window-content space-y-4">
+                    <div className="flex items-center justify-between">
+                      <ChartFrameHeader
+                        title="Local Prediction Breakdown"
+                        what="Quantifies feature contributions for one specific inference."
+                        why="Shows why the model predicted a given class."
+                      />
+                      {predictions.length > 0 && (
+                        <select
+                          value={selectedPredId || ""}
+                          onChange={(e) => setSelectedPredId(e.target.value)}
+                          className="bg-ink border-2 border-line p-1 text-xs font-mono"
+                        >
+                          {predictions.map((p, idx) => (
+                            <option key={p.id} value={p.id}>
+                              {idx + 1}. Class {p.predicted_class}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {explanationLoading ? (
+                      <div className="py-12 text-center font-mono text-xs font-bold animate-pulse">
+                        Calculating local attribution values...
+                      </div>
+                    ) : predExplanation ? (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart layout="vertical" data={predExplanation.breakdown}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                            <XAxis type="number" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                            <YAxis type="category" dataKey="feature" stroke={AXIS_STROKE} fontSize={9} tickLine={false} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="contribution" radius={0}>
+                              {predExplanation.breakdown.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={entry.contribution > 0 ? ROSE : EMERALD} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

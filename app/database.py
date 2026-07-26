@@ -6,12 +6,17 @@ from app.config import settings
 
 # The engine is the core connection pool to PostgreSQL.
 # It handles connection pooling, reconnection, etc.
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,   # test connections before using them
-    pool_size=5,          # maintain 5 persistent connections
-    max_overflow=10,      # allow 10 extra connections under load
-)
+# (sqlite — used under TEST_DATABASE_URL — doesn't support the QueuePool-only
+# pool_size/max_overflow kwargs, so those are only passed for non-sqlite URLs.)
+if settings.database_url.startswith("sqlite"):
+    engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(
+        settings.database_url,
+        pool_pre_ping=True,   # test connections before using them
+        pool_size=5,          # maintain 5 persistent connections
+        max_overflow=10,      # allow 10 extra connections under load
+    )
 
 # SessionLocal is a factory: calling SessionLocal() gives you one DB session.
 # A session is a unit of work — you open it, do DB operations, then close it.

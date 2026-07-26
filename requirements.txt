@@ -15,3 +15,5 @@ httpx
 aiosqlite
 faiss-cpu
 tensorflow
+celery
+redis

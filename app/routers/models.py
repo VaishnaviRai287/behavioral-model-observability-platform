@@ -84,7 +84,7 @@ def get_model_health(model_id: str, db: Session = Depends(get_db)):
     # 3. Retrieve count of active, unresolved alerts
     active_alerts = (
         db.query(Alert)
-        .filter(Alert.model_id == model_id, Alert.resolved_at == None)
+        .filter(Alert.model_id == model_id, Alert.resolved_at.is_(None))
         .count()
     )
 
