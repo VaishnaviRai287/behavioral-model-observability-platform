@@ -8,9 +8,6 @@ from app.middleware.logging import RequestLoggingMiddleware
 from app.routers import models, probes, fingerprints, predictions, health, alerts, dataset_health, performance, drift_analysis, explainability, api_keys
 from app.utils.auth import require_api_key
 
-
-
-# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 app = FastAPI(
@@ -27,13 +24,11 @@ app.add_middleware(RequestLoggingMiddleware)
 # CORS: Allow frontend (Next.js) to call this API from a different port
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 # Register the routers. Everything except /health and /api-keys (which gates itself,
 # to allow first-run bootstrap) requires a valid API key.
@@ -48,7 +43,7 @@ app.include_router(performance.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(drift_analysis.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(explainability.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(api_keys.router, prefix="/api/v1")
-app.include_router(health.router)  # No prefix for health endpoints
+app.include_router(health.router)
 
 
 @app.get("/health")

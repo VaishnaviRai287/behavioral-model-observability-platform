@@ -7,23 +7,11 @@ from app.probing.engine import run_probe_session
 
 
 def start_probe(db: Session, model_id: str, n_probes: int) -> ProbeSession:
-    """
-    Start a probe session for a given model.
-
-    Creates a ProbeSession record, runs the probe engine,
-    and returns the completed session.
-
-    Raises:
-        404: If model_id does not exist
-        422: If model file is missing from disk
-    """
-
-    # ── Fetch the model ───────────────────────────────────────────────────────
+    """Run a probe session for a model and return it once complete (or failed)."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # ── Create the session record ─────────────────────────────────────────────
     session = ProbeSession(
         model_id=model_id,
         n_probes=n_probes,
@@ -33,7 +21,6 @@ def start_probe(db: Session, model_id: str, n_probes: int) -> ProbeSession:
     db.commit()
     db.refresh(session)
 
-    # ── Run the probe engine ──────────────────────────────────────────────────
     try:
         run_probe_session(
             db=db,
@@ -42,7 +29,6 @@ def start_probe(db: Session, model_id: str, n_probes: int) -> ProbeSession:
             schema=model.input_schema,
         )
     except Exception as e:
-        # If the engine fails, mark the session as failed
         session.status = "failed"
         session.error_message = str(e)
         db.commit()

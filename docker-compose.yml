@@ -5,15 +5,15 @@ services:
     image: postgres:15-alpine
     container_name: modelmesh-db
     environment:
-      POSTGRES_DB: modelmesh
-      POSTGRES_USER: modelmesh
-      POSTGRES_PASSWORD: modelmesh123
+      POSTGRES_DB: ${POSTGRES_DB:-modelmesh}
+      POSTGRES_USER: ${POSTGRES_USER:-modelmesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-modelmesh123}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U modelmesh -d modelmesh"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelmesh} -d ${POSTGRES_DB:-modelmesh}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,9 +33,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://modelmesh:modelmesh123@db:5432/modelmesh
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-modelmesh}:${POSTGRES_PASSWORD:-modelmesh123}@db:5432/${POSTGRES_DB:-modelmesh}
       - UPLOAD_DIR=uploads
       - REDIS_URL=redis://redis:6379/0
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
@@ -49,7 +50,7 @@ services:
     container_name: modelmesh-celery-worker
     command: celery -A app.tasks.celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=postgresql://modelmesh:modelmesh123@db:5432/modelmesh
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-modelmesh}:${POSTGRES_PASSWORD:-modelmesh123}@db:5432/${POSTGRES_DB:-modelmesh}
       - UPLOAD_DIR=uploads
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -61,15 +62,20 @@ services:
       - ./uploads:/app/uploads
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://api:8000
+        # Must be reachable from the browser, not just inside Docker — defaults
+        # to the published host port. Override in .env for a real deployment.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "3000:3000"
     environment:
       - API_URL=http://api:8000
-      - NEXT_PUBLIC_API_URL=http://api:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
       - api
 
 volumes:
   postgres_data:
-

@@ -14,7 +14,7 @@ from app.main import app
 from app.ml import model_cache
 from app.probing.sampler import generate_probe_inputs
 
-# ── Test DB setup (same pattern as test_models.py) ───────────────────────────
+# Test DB setup (same pattern as test_models.py)
 
 import os
 
@@ -81,7 +81,7 @@ SCHEMA_DICT = {
 }
 
 
-# ── Sampler tests ─────────────────────────────────────────────────────────────
+# Sampler tests
 
 def test_sampler_output_shape():
     """generate_probe_inputs returns the correct number of vectors."""
@@ -113,7 +113,7 @@ def test_sampler_default_bounds():
         assert -3.0 <= vector[0] <= 3.0
 
 
-# ── Probe API tests ───────────────────────────────────────────────────────────
+# Probe API tests
 
 @pytest.fixture
 def uploaded_model_id(client, sklearn_model_bytes):

@@ -18,7 +18,7 @@ from app.models.alert import Alert
 from app.models.drift_event import DriftEvent
 from app.models.prediction_log import PredictionLog
 
-# ── Test Database Configuration ───────────────────────────────────────────────
+# Test Database Configuration
 
 SQLALCHEMY_TEST_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -88,7 +88,7 @@ def uploaded_model_id(client, sklearn_model_bytes):
     return response.json()["id"]
 
 
-# ── Drift and Alert Engine Tests ──────────────────────────────────────────────
+# Drift and Alert Engine Tests
 
 def test_drift_and_alerts_flow(client, uploaded_model_id):
     """

@@ -1,9 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
   async rewrites() {
-    // Determine target API URL (use host for external, or internal service name for container communication if needed)
-    // Here we use localhost because port 3000 is accessed from client browser which sends request to localhost:8000
+    // These rewrites run server-side (inside the Next.js server process), so
+    // API_URL — the Docker-internal address — takes priority over the
+    // browser-facing NEXT_PUBLIC_API_URL.
     const apiHost = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return [
       {

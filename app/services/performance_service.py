@@ -6,15 +6,11 @@ from app.models.ml_model import MLModel
 from app.models.prediction_log import PredictionLog
 
 def analyze_performance_profile(db: Session, model_id: str) -> dict:
-    """
-    Generate inference performance metrics (latency, throughput, memory, CPU)
-    from prediction logs.
-    """
+    """Compute latency, throughput, memory, and CPU stats from recent prediction logs."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # Fetch recent logs (up to 1000 logs for percentile statistics)
     logs = (
         db.query(PredictionLog)
         .filter(PredictionLog.model_id == model_id)
@@ -33,8 +29,7 @@ def analyze_performance_profile(db: Session, model_id: str) -> dict:
         }
 
     total_predictions = len(logs)
-    
-    # ── A. Latency Percentiles ───────────────────────────────────────────────
+
     latencies = [log.latency_ms for log in logs]
     lat_mean = float(np.mean(latencies))
     lat_min = float(np.min(latencies))
@@ -43,7 +38,6 @@ def analyze_performance_profile(db: Session, model_id: str) -> dict:
     lat_p95 = float(np.percentile(latencies, 95))
     lat_p99 = float(np.percentile(latencies, 99))
 
-    # ── B. CPU & Memory Utilization ──────────────────────────────────────────
     cpu_utils = [log.cpu_utilization for log in logs if log.cpu_utilization is not None]
     mem_usages = [log.memory_mb for log in logs if log.memory_mb is not None]
 
@@ -53,10 +47,8 @@ def analyze_performance_profile(db: Session, model_id: str) -> dict:
     mem_mean = float(np.mean(mem_usages)) if mem_usages else 0.0
     mem_peak = float(np.max(mem_usages)) if mem_usages else 0.0
 
-    # ── C. Throughput (Requests Per Second) ──────────────────────────────────
     now = datetime.now(timezone.utc)
-    
-    # 1-minute window
+
     one_min_ago = now - timedelta(minutes=1)
     logs_1m = db.query(PredictionLog).filter(
         PredictionLog.model_id == model_id,
@@ -78,10 +70,8 @@ def analyze_performance_profile(db: Session, model_id: str) -> dict:
     if time_diff > 1:
         rps_overall = len(logs) / time_diff
     else:
-        # Default or fallback
         rps_overall = rps_1m
 
-    # Ratios and limits rounding
     return {
         "latency": {
             "mean": round(lat_mean, 3),

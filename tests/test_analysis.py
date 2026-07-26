@@ -19,7 +19,7 @@ from app.models.prediction_log import PredictionLog
 from app.models.probe_session import ProbeSession
 from app.models.probe_result import ProbeResult
 
-# ── Test Database Configuration ───────────────────────────────────────────────
+# Test Database Configuration
 
 SQLALCHEMY_TEST_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -89,7 +89,7 @@ def uploaded_model_id(client, sklearn_model_bytes):
     return response.json()["id"]
 
 
-# ── Test Cases ────────────────────────────────────────────────────────────────
+# Test Cases
 
 def test_dataset_health_empty_logs(client, uploaded_model_id):
     """GET /dataset-health returns empty defaults if no logs exist."""

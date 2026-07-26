@@ -14,7 +14,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.ml import model_cache
 
-# ── Test DB ───────────────────────────────────────────────────────────────────
+# Test DB
 
 SQLALCHEMY_TEST_URL = os.getenv(
     "TEST_DATABASE_URL",

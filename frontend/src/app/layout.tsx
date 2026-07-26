@@ -86,7 +86,7 @@ export default function RootLayout({
               <p className="label-mono text-paper">Navigation & Docs</p>
               <div className="flex flex-col gap-2 font-mono text-xs">
                 <a
-                  href="http://localhost:8000/docs"
+                  href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/docs`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-accent transition-colors w-fit flex items-center gap-1.5"

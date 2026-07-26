@@ -10,20 +10,7 @@ from app.models.prediction_log import PredictionLog
 
 
 def validate_and_build_vector(features: dict, schema: dict) -> list[float]:
-    """
-    Validate input features against the model schema and build an ordered input vector.
-
-    Checks:
-    1. All declared features are present in the request
-    2. Values can be converted to float
-    3. Values are within declared min/max bounds (if specified)
-
-    Returns:
-        Ordered list of float values matching the schema's feature order.
-
-    Raises:
-        HTTPException 422: On any validation failure.
-    """
+    """Validate features against the model's input schema and return an ordered vector."""
     schema_features = schema.get("features", [])
     input_vector = []
 
@@ -32,14 +19,12 @@ def validate_and_build_vector(features: dict, schema: dict) -> list[float]:
         feat_min = feature.get("min")
         feat_max = feature.get("max")
 
-        # ── Check presence ────────────────────────────────────────────────────
         if name not in features:
             raise HTTPException(
                 status_code=422,
                 detail=f"Missing required feature: '{name}'"
             )
 
-        # ── Check type ────────────────────────────────────────────────────────
         try:
             value = float(features[name])
         except (TypeError, ValueError):
@@ -48,7 +33,6 @@ def validate_and_build_vector(features: dict, schema: dict) -> list[float]:
                 detail=f"Feature '{name}' must be a number, got: {features[name]!r}"
             )
 
-        # ── Check bounds ──────────────────────────────────────────────────────
         if feat_min is not None and value < feat_min:
             raise HTTPException(
                 status_code=422,
@@ -66,33 +50,15 @@ def validate_and_build_vector(features: dict, schema: dict) -> list[float]:
 
 
 def predict(db: Session, model_id: str, features: dict) -> dict:
-    """
-    Run a live prediction on a registered model.
-
-    Steps:
-    1. Fetch model from DB
-    2. Validate and order input features
-    3. Load model wrapper
-    4. Run predict() with latency measurement
-    5. Store prediction log
-    6. Return prediction result
-
-    Raises:
-        404: If model_id doesn't exist
-        422: If input validation fails
-    """
-
-    # ── Fetch model ────────────────────────────────────────────────────────────
+    """Run inference, score novelty/drift, and log the result."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # ── Validate input and build ordered vector ────────────────────────────────
     input_vector = validate_and_build_vector(features, model.input_schema)
 
-    # ── Load model and run inference (cached) ─────────────────────────────────
     wrapper = get_cached_wrapper(model.file_path)
-    input_array = np.array([input_vector])   # shape (1, n_features)
+    input_array = np.array([input_vector])
 
     start_cpu = time.process_time()
     start_time = time.perf_counter()
@@ -100,12 +66,12 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
     end_time = time.perf_counter()
     end_cpu = time.process_time()
 
-    latency_ms = (end_time - start_time) * 1000   # convert seconds → milliseconds
+    latency_ms = (end_time - start_time) * 1000
     wall_time = end_time - start_time
     cpu_time = end_cpu - start_cpu
     cpu_utilization = (cpu_time / wall_time * 100) if wall_time > 0 else 0.0
 
-    # Memory usage mapping (Darwin in bytes, Linux in kilobytes)
+    # ru_maxrss is bytes on Darwin, kilobytes on Linux.
     import sys
     import resource
     ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -114,11 +80,9 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
     else:
         memory_mb = ru_maxrss / 1024
 
-    # ── Novelty scoring ───────────────────────────────────────────────────────
     from app.monitoring.novelty_scorer import score_novelty
     faiss_distance, novelty_flag = score_novelty(db, model_id, activation)
 
-    # ── Store prediction log ───────────────────────────────────────────────────
     log = PredictionLog(
         model_id=model_id,
         input_features=features,
@@ -135,7 +99,6 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
     db.add(log)
     db.commit()
 
-    # ── Novelty Alert Check ───────────────────────────────────────────────────
     if novelty_flag:
         from app.monitoring.alert_engine import process_latent_novelty
         process_latent_novelty(
@@ -145,14 +108,13 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
             {"input_features": features}
         )
 
-    # ── Async Drift Check (Every 50th prediction) ────────────────────────────────
-    # Dispatched to a Celery worker so drift computation never blocks this response.
+    # Drift is checked every 50th prediction, dispatched to a Celery worker so
+    # it never blocks this response.
     prediction_count = db.query(PredictionLog).filter(PredictionLog.model_id == model_id).count()
     if prediction_count > 0 and prediction_count % 50 == 0:
         from app.tasks.drift_task import run_drift_check
 
         run_drift_check.delay(model_id)
-
 
     return {
         "model_id": model_id,
@@ -166,12 +128,7 @@ def predict(db: Session, model_id: str, features: dict) -> dict:
 
 
 def list_prediction_logs(db: Session, model_id: str, limit: int = 100) -> list[PredictionLog]:
-    """
-    Retrieve the most recent prediction logs for a model.
-
-    Args:
-        limit: Maximum number of logs to return (default 100, max 1000).
-    """
+    """Return the most recent prediction logs for a model, newest first."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")

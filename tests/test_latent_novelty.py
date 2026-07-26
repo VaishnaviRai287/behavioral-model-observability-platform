@@ -16,7 +16,7 @@ from app.ml import model_cache
 from app.models.faiss_index import FAISSIndex
 from app.models.prediction_log import PredictionLog
 
-# ── Test Database Configuration ───────────────────────────────────────────────
+# Test Database Configuration
 
 SQLALCHEMY_TEST_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -86,7 +86,7 @@ def uploaded_model_id(client, sklearn_model_bytes):
     return response.json()["id"]
 
 
-# ── Latent Monitoring Tests ───────────────────────────────────────────────────
+# Latent Monitoring Tests
 
 def test_probe_generates_faiss_index(client, uploaded_model_id):
     """Probing the model creates a FAISS index record and stores it on disk."""

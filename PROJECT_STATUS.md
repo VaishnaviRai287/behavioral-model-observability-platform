@@ -2,10 +2,11 @@
 
 _Last updated: 2026-07-26. Written for any agent or human picking this project up next._
 
-> **Nothing described below is committed yet.** Every change from this session is sitting
-> uncommitted in the working tree (`git status` shows ~17 modified files + ~9 new
-> files/directories). Review and commit in logical chunks before doing anything else —
-> see [Uncommitted changes](#uncommitted-changes-in-this-working-tree) at the bottom for the exact file list.
+> **Commit status**: the Celery/API-key/redesign work described in §3 below is already
+> committed (`78f8a8b Adding celery and redis and UI`). The **production-readiness and
+> AI-trace cleanup pass** described in §4 is **not committed yet** — it's sitting
+> uncommitted in the working tree. See [Uncommitted changes](#uncommitted-changes-in-this-working-tree)
+> at the bottom for the exact file list before doing anything else.
 
 ---
 
@@ -32,9 +33,7 @@ orchestration, PyTorch/TensorFlow/scikit-learn/ONNX support for ingested models.
 
 ---
 
-## 2. What's done — pre-existing (before this session)
-
-This was already built and working when this session started:
+## 2. What's done — pre-existing (before any of this work)
 
 - **V1**: multi-framework ingestion (sklearn/PyTorch/TF-Keras/ONNX), framework
   auto-detection, architecture extraction, deterministic model signature, LHS probing
@@ -42,230 +41,199 @@ This was already built and working when this session started:
   tree over probe results).
 - **V2-A**: FAISS latent-space indexing at probe time; novelty scoring at inference
   time (`faiss_distance` / `novelty_flag` on every prediction log).
-- **V2-B**: KS/PSI drift detection (`app/monitoring/drift_detector.py`), alert engine
-  (`app/monitoring/alert_engine.py`) producing `LATENT_NOVELTY` / `FEATURE_DRIFT`
-  alerts, health/alerts endpoints, dataset health analysis, performance profiling,
-  drift analysis, SHAP explainability (global + local).
-- Full Next.js dashboard for all of the above (before this session's redesign): model
-  registry, per-model dashboard with tabs, fingerprint viewer.
-- Pytest suite covering ingestion, probing, fingerprinting, drift/alerting,
-  explainability, model runtime, production readiness (89 tests passing at session
-  start).
+- **V2-B**: KS/PSI drift detection, alert engine producing `LATENT_NOVELTY` /
+  `FEATURE_DRIFT` alerts, health/alerts endpoints, dataset health analysis,
+  performance profiling, drift analysis, SHAP explainability (global + local).
+- A working Next.js dashboard for all of the above, and a pytest suite covering
+  ingestion, probing, fingerprinting, drift/alerting, explainability, and model
+  runtime (89 tests at the time).
 
-Per the project's own `docs/v2-phases.md` roadmap, **V2-C (Celery async tasks +
-Prometheus + Grafana) had not been started** at session start. That roadmap doc is the
-best source of the project's own intended next steps beyond what's captured here.
+Per the project's own `docs/v1-*.md` / `docs/v2-*.md` planning docs (kept locally,
+gitignored — see §5), V2-C (Celery + Prometheus/Grafana) had not been started.
 
 ---
 
-## 3. What was done in this session
+## 3. What was done — Celery, API-key auth, and the UI redesign (committed: `78f8a8b`)
 
-### 3.1 Frontend visual redesign (went through several iterations)
-
-The dashboard started as a generic dark-teal-glassmorphism SaaS look. Redesigned
-through multiple rounds, ending on a **white-and-pink editorial theme** (final state):
-
-- `frontend/tailwind.config.js` — color tokens are named `ink` / `paper` / `panel` /
-  `line` / `mute` / `accent`, but **the names no longer describe their original
-  dark-theme meaning** — see the comment block in that file. Short version: `ink` =
-  white (page bg), `paper` = near-black (primary text), `panel` = pink (card bg),
-  `line` = near-black (borders), `accent` = deep rose-pink (CTAs/active states). This
-  was a deliberate value-swap so class names in JSX didn't need renaming everywhere —
-  **read the comment in `tailwind.config.js` before changing colors again**, it's
-  easy to get confused by the names.
-- `frontend/src/app/globals.css` — `.panel`, `.label-mono`, `.stat-huge`,
-  `.explainer`, `.grid-texture` / `.grid-texture-light` (dot-grid card texture),
-  `.btn-notch` (chamfered-corner CTA buttons), `.section-label` (eyebrow dividers),
-  `.full-bleed` (escapes the centered `<main>` container for full-width sections).
-- Fonts: `Anton` (condensed, used for the nav wordmark, footer wordmark, and
-  dashboard stat numbers), `Playfair Display` (serif, used for marketing headlines —
-  hero, "Platform at a Glance", "Model Registry" title), `JetBrains Mono` (all
-  uppercase micro-labels, IDs, code).
-- **Landing page** (`frontend/src/app/page.tsx`) is now a proper marketing page: pink
-  hero panel with a serif headline and a CSS/SVG "novelty radar" illustration
-  (`frontend/src/components/CornerBrackets.tsx` is the reusable corner-bracket frame
-  component used there and on the feature cards), a "Platform at a Glance" section
-  with **live** registry stats (real `useModels()` data, not fabricated numbers), a
-  motivation section, a 4-card features section (one card in the deep accent pink),
-  and the ingestion pipeline diagram.
-- **Model registry moved to `/registry`** (`frontend/src/app/registry/page.tsx`) —
-  `/` is now the marketing landing page, not the registry. Nav/footer links and every
-  "Back to Registry" link across the app point at `/registry`.
-- **Model dashboard** (`frontend/src/app/models/[id]/page.tsx`): the "Architecture
-  Graph" tab was removed entirely (dead code — `renderArchitectureGraph`,
-  `selectedLayer` state, the tab entry — all deleted; the layer table on the
-  Monitoring tab still shows architecture info and was untouched). The "Behavioral
-  Fingerprint" link was upgraded from a small corner pill into a full-width
-  accent-bordered feature banner between the title and the quick-stats row.
-- All severity/alert badges (critical/warning/healthy chips, verdict badges) were
-  retuned from dark-theme colors (`-400` text, `-900` borders — illegible on a light
-  background) to light-theme-appropriate ones (`-600`/`-700` text, `-300` borders,
-  `-50` background tints). All hardcoded recharts hex constants (`GRID_STROKE`,
-  `AXIS_STROKE`, `TOOLTIP_STYLE`, `PAPER`/`MUTE`/`ROSE`/`AMBER`/`EMERALD`) in both
-  `models/[id]/page.tsx` and `models/[id]/fingerprint/page.tsx` were updated to match.
-
-**If asked to touch visual design again**: the reference aesthetic the user pointed at
-was a pink/white/black editorial SaaS site (serif display headline, dot-grid textured
-cards, corner-bracket frames around illustrations, chamfered-corner buttons). Check
-`tailwind.config.js`'s comment block first so color changes land in the right token.
+### 3.1 Frontend visual redesign
+Went through several iterations, ending on a white-and-pink editorial theme (pink
+panels, black serif headlines, corner-bracket illustration frames, chamfered-corner
+buttons) before the user did their own further pass on top of it. Key structural
+points still true today:
+- `frontend/tailwind.config.js` — color tokens (`ink`/`paper`/`panel`/`line`/`mute`/`accent`)
+  are named after their *original* dark-theme roles but hold light-theme values now —
+  read the comment block in that file before changing colors, the names are easy to
+  misread.
+- Landing page (`frontend/src/app/page.tsx`) is a marketing page; the model registry
+  lives at `/registry` (`frontend/src/app/registry/page.tsx`), not `/`.
+- Model dashboard (`frontend/src/app/models/[id]/page.tsx`): "Architecture Graph" tab
+  was removed; "Behavioral Fingerprint" is a full-width feature banner, not a small
+  corner pill.
 
 ### 3.2 Backend: Celery (async drift processing)
-
-Drift detection used to run **synchronously inline** inside `predict()` on every 50th
-prediction, blocking that request. Now:
-
-- `app/tasks/celery_app.py` — Celery app, Redis broker/backend. Runs
-  `task_always_eager=True` whenever `TEST_DATABASE_URL` is set in the environment, so
-  `.delay()` calls execute synchronously in-process during `pytest` — no broker
-  needed for tests.
-- `app/tasks/drift_task.py` — `run_drift_check(model_id)` task body: opens its own
-  `SessionLocal()`, calls the same `detect_drift()` / `process_feature_drift()`
-  functions as before (unchanged), closes the session.
-- `app/services/prediction_service.py` — the inline drift block now just does
-  `run_drift_check.delay(model_id)` instead of calling the monitoring functions
-  directly. Same `% 50 == 0` trigger.
-- `app/config.py` — added `redis_url`.
-- `docker-compose.yml` — added `redis` (redis:7-alpine, healthcheck via
-  `redis-cli ping`) and `celery-worker` (same image as `api`, runs
-  `celery -A app.tasks.celery_app worker`) services.
-- `requirements.txt` — added `celery`, `redis`.
-
-**Explicitly not done**: Prometheus + Grafana. The user confirmed this is
-intentionally skipped — the custom dashboard already covers that visualization need,
-and standing up a second metrics stack for a single-operator self-hosted tool wasn't
-judged worth the operational overhead. If this decision is ever revisited, a bare
-`/metrics` endpoint is the cheap first step, not a full Grafana instance.
+Drift detection used to run synchronously inline inside `predict()` on every 50th
+prediction, blocking that request.
+- `app/tasks/celery_app.py` / `app/tasks/drift_task.py` — `run_drift_check(model_id)`
+  task, dispatched via `.delay()` from `app/services/prediction_service.py` instead of
+  calling `detect_drift()`/`process_feature_drift()` inline.
+- Runs `task_always_eager=True` whenever `TEST_DATABASE_URL` is set, so tests exercise
+  the same code path synchronously with no broker required.
+- `docker-compose.yml` gained `redis` and `celery-worker` services.
+- **Explicitly not done**: Prometheus + Grafana — confirmed with the user as
+  intentionally skipped (redundant with the existing custom dashboard).
 
 ### 3.3 Backend: API-key authentication
-
-There was **zero auth** anywhere before this session (`allow_origins=["*"]`, every
-endpoint open). This was the blocker for "let people connect their own models to this
-as a real API." Added a simple bearer-token API key — deliberately **not** a full
-user/account system, since this is a self-hosted single-operator tool:
-
-- `app/models/api_key.py` — `ApiKey` model (id, name, `key_hash` unique, `key_prefix`
-  for display, `created_at`, `last_used_at`, `revoked_at`).
-- `app/schemas/api_key.py`, `app/routers/api_keys.py` — `POST /api/v1/api-keys`
-  (bootstrap rule: allowed with **no** auth only if zero non-revoked keys exist yet;
-  otherwise requires a valid existing key), `GET /api/v1/api-keys` (list, masked),
-  `DELETE /api/v1/api-keys/{id}` (revoke).
-- `app/utils/auth.py` — key generation (`mmk_<32 hex>` format, SHA-256 hashed at
-  rest, plaintext shown exactly once at creation), `require_api_key` FastAPI
-  dependency.
-- `alembic/versions/0011_add_api_keys_table.py` — **must be applied** on any existing
-  deployment (`alembic upgrade head`).
-- `app/main.py` — every router except `health` and `api_keys` now has
-  `dependencies=[Depends(require_api_key)]` on its `include_router()` call. CORS
-  tightened to `settings.cors_origins` (env-configurable, defaults to
-  `http://localhost:3000`).
-- `app/config.py` — added `cors_origins`, and `disable_auth` which defaults to `True`
-  whenever `TEST_DATABASE_URL` is set in the environment. **This is the key testing
-  decision to be aware of**: it lets all the pre-existing test files keep passing
-  unchanged (they already set `TEST_DATABASE_URL` before importing the app) instead of
-  needing every test's HTTP call updated with an `Authorization` header.
-  `tests/test_api_keys.py` is the **only** test file that explicitly overrides
-  `disable_auth` back to `False` to verify the actual 401/200 enforcement and the
-  bootstrap rule.
-- `app/middleware/__init__.py` — emptied out; it was a byte-for-byte duplicate of
-  `app/middleware/logging.py`'s `RequestLoggingMiddleware` (dead code, `main.py`
-  already imported from the other file).
-
-**Frontend wiring:**
-- `frontend/src/lib/api.ts` — reads a key from `localStorage`
-  (`modelmesh_api_key`), attaches `Authorization: Bearer <key>` on every request.
-- `frontend/src/app/registry/page.tsx` — `ApiKeyPanel` component: shows a bootstrap
-  "Generate API Key" card if no key is stored, reveals the plaintext key once with a
-  copy button, then shows a masked "API Key Active" + "Regenerate" control
-  thereafter. `useModels()` (in `frontend/src/hooks/useModelHealth.ts`) got a
-  `refetch` added so the panel can force an immediate model-list retry right after a
-  key is created/regenerated instead of waiting up to 10s for the next poll.
-- `frontend/src/app/models/[id]/page.tsx` — the `handleSimulateTraffic` direct
-  `fetch()` calls now also attach the stored key.
-- `demo/run_demo.py`, `demo/simulate_traffic.py` — bootstrap a key at script start
-  and send it on every request.
-
-**Bugs found and fixed during this work** (worth knowing about if similar symptoms
-resurface):
-1. Registry page showed a stale "Connection Failed / Invalid or revoked API key"
-   message even after successfully generating a new key — because nothing told the
-   already-failed `useModels()` poll to retry. Fixed by adding `refetch` to the hook
-   and calling it from `ApiKeyPanel` right after key creation/regeneration.
-2. The key-reveal-once panel didn't survive the registry's error→success remount
-   (React remounts the whole tree when the connection error clears) — fixed by
-   persisting the "pending reveal" in `sessionStorage` so a fresh component instance
-   picks it back up.
-3. Generate/Regenerate occasionally double-fired (observed as a spurious 401
-   "Missing API key" appearing right after a successful key creation, or 3 requests
-   logged for 1 click). Root cause wasn't fully isolated — `busy` state alone doesn't
-   block a near-simultaneous second invocation since React state updates aren't
-   synchronous. Fixed defensively with a `useRef` re-entrancy guard
-   (`inFlightRef`) in `handleGenerate`/`handleRegenerate` that blocks re-entrant calls
-   regardless of root cause. **This was verified fixed in this session's final test
-   pass, but only with a handful of manual clicks — if it resurfaces, that ref guard
-   is the place to look, and it'd be worth adding an automated test that fires the
-   handler twice in the same tick.**
-
-### 3.4 Test suite
-
-97 tests passing (`TEST_DATABASE_URL=sqlite:///./test.db .venv/bin/pytest -q`) — the
-original 89 plus 8 new ones in `tests/test_api_keys.py`.
+There was zero auth before this (`allow_origins=["*"]`, every endpoint open).
+- `app/models/api_key.py`, `app/schemas/api_key.py`, `app/routers/api_keys.py`,
+  `app/utils/auth.py` — a single-tenant bearer-token API key (`mmk_<32 hex>`, SHA-256
+  hashed at rest, shown once at creation). Bootstrap rule: `POST /api/v1/api-keys`
+  allows unauthenticated creation only while zero non-revoked keys exist.
+- `app/main.py` — every router except `health` and `api_keys` requires
+  `Depends(require_api_key)`.
+- `app/config.py` — `disable_auth` defaults to `True` whenever `TEST_DATABASE_URL` is
+  set, so the pre-existing test suite needed no changes; `tests/test_api_keys.py` is
+  the one file that flips it back to exercise the real gate.
+- Frontend: `lib/api.ts` attaches the stored key as `Authorization: Bearer <key>`;
+  `registry/page.tsx`'s `ApiKeyPanel` handles bootstrap/reveal-once/regenerate.
+- **Bugs found and fixed along the way**: a stale "Connection Failed" message that
+  didn't clear after generating a valid key (fixed by adding `refetch` to `useModels()`
+  and calling it from `ApiKeyPanel`); a possible double-fire on
+  Generate/Regenerate (fixed with a `useRef` re-entrancy guard, since `busy` state
+  alone doesn't block a near-simultaneous second call).
 
 ---
 
-## 4. What's explicitly NOT done / deferred
+## 4. What was done — production-readiness & AI-trace audit (this session, uncommitted)
 
-Confirmed out of scope with the user during this session:
-- **Prometheus + Grafana** (V2-C's other half) — intentionally skipped, see §3.2.
+The user cleaned up the UI further themselves, then asked for a full audit: make the
+project production-ready and remove signs of AI-assisted generation. Full test suite
+(97 tests) verified passing after every step below.
+
+### 4.1 AI-trace cleanup
+- Removed the `# ── Section ──────` box-drawing comment style throughout the backend
+  (10 `app/` files, 10 `tests/` files) — a strong AI-generated-code tell. Simplified
+  numbered docstrings ("Steps: 1. 2. 3." / "Args:/Returns:" restating the signature)
+  to single-line docstrings that say what the function does, not how.
+- Fixed a real bug surfaced during this pass: `tests/test_model_runtime.py`'s
+  TensorFlow wrapper test caught `except (ImportError, Exception): pass` — i.e. it
+  silently passed regardless of outcome, giving zero real coverage. Replaced with
+  `pytest.importorskip("tensorflow")` so it either genuinely runs or visibly skips.
+- Deduplicated a 3x-repeated empty-result dict in
+  `app/monitoring/drift_detector.py` into `_empty_drift_analysis()`, and factored
+  duplicated severity-threshold logic into `_severity()`.
+- Cleaned the same box-comment style out of `.gitignore`; removed the accidentally
+  committed `frontend/tsconfig.tsbuildinfo` build artifact and added it to
+  `.gitignore`.
+
+### 4.2 Backend production-readiness
+- **`requirements.txt` was completely unpinned** — now pinned to the exact versions
+  verified installed and passing (`pip freeze` against the working `.venv`). Added
+  `scipy` explicitly (was an unpinned transitive dependency of code that imports it
+  directly). Split test-only deps (`pytest`, `httpx`) into `requirements-dev.txt`.
+  **Known gap**: TensorFlow has no wheel for Python 3.14 — it's pinned to a
+  Python-3.10-compatible range (`>=2.15,<2.17`) but was **not actually verified
+  installable in this environment**; test it explicitly under the Docker image
+  (`python:3.10-slim`) before relying on TF ingestion in production.
+- **Hardcoded default DB credentials** (`modelmesh`/`modelmesh123`) existed in three
+  places (`app/config.py`, `Dockerfile`, `docker-compose.yml`). `docker-compose.yml`
+  now reads `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/`CORS_ORIGINS` from a
+  `.env` file (see new `.env.example`), with the old values kept only as fallback
+  defaults so nothing breaks for people who don't set one up.
+- **Fixed a real crash-on-startup bug**: `cors_origins` was typed `list[str]` in
+  pydantic-settings, which tries to JSON-decode list-typed env vars *before* any
+  validator runs — setting `CORS_ORIGINS=http://localhost:3000` (a plain string, the
+  natural way to set it via docker-compose/shell) crashed the app at import time.
+  Fixed by keeping it a plain `str` field with a `.cors_origins_list` property that
+  splits on commas — this is the standard workaround for this exact pydantic-settings
+  gotcha.
+- **Both Dockerfiles now run as non-root** (`modelmesh` uid 1000 for the backend,
+  the built-in `node` user for the frontend), and both gained a `.dockerignore`.
+  Frontend Dockerfile switched `npm install`/`npm install --omit=dev` to
+  `npm ci`/`npm ci --omit=dev` for reproducible builds.
+- Cleaned up dead/redundant blank lines and comments in `app/main.py`.
+
+### 4.3 Frontend production-readiness
+- **Fixed a real deployment bug**: the "API Docs" link was hardcoded to
+  `http://localhost:8000/docs` in both `layout.tsx` and `page.tsx` — would 404 (or
+  point at the wrong place) on any real deployment. Now reads
+  `process.env.NEXT_PUBLIC_API_URL`.
+- **Fixed a subtler, related bug**: `docker-compose.yml` set
+  `NEXT_PUBLIC_API_URL=http://api:8000` (the Docker-internal hostname) — but
+  `NEXT_PUBLIC_*` vars get inlined into the client bundle at **build time**, not read
+  from the container at runtime, and `http://api:8000` is not reachable from a
+  browser running outside the Docker network at all. Fixed by threading
+  `NEXT_PUBLIC_API_URL` through as a Docker build ARG (see `frontend/Dockerfile` and
+  the `frontend.build.args` block in `docker-compose.yml`), defaulting to
+  `http://localhost:8000` (the published host port — correct for local
+  docker-compose use; override via `.env` for a real deployment).
+- Added `frontend/.eslintrc.json` (`next/core-web-vitals`) and installed
+  `eslint`/`eslint-config-next` as dev dependencies — `npm run lint` previously
+  couldn't run at all (ESLint wasn't installed). Lint is now clean except one
+  pre-existing warning (see gap below).
+- Added `poweredByHeader: false` to `next.config.js` (drops the `X-Powered-By:
+  Next.js` response header).
+- **Known gap, not fixed — flagging prominently**: `npm audit` reports **16 high
+  severity vulnerabilities in `next@14.2.35`** (the latest available 14.x release),
+  including SSRF via rewrites (this app uses rewrites), cache poisoning, and DoS via
+  Server Components. The only fix path `npm audit` offers is `next@16.2.12`, a
+  breaking two-major-version jump — **deliberately not done here** without explicit
+  sign-off, since it needs real regression testing (App Router / rewrites / React
+  version behavior can all shift across two majors). This is the single most
+  important open item in this document if "production ready" includes the actual
+  web framework's known CVEs.
+- **Known gaps, not fixed**: no `public/` folder or favicon at all (cosmetic, but a
+  common "unfinished project" tell); custom fonts are loaded via a `<link>` tag in
+  `layout.tsx` rather than `next/font/google`, which ESLint flags as discouraged
+  (performance/layout-shift best practice, not a bug — left alone to avoid an
+  unreviewed visual regression risk this session didn't have time to verify in-browser).
+
+### 4.4 Things noticed but deliberately left alone
+- **In-process caches won't survive multi-worker scaling**: `app/ml/model_cache.py`'s
+  `_cache` dict and `app/services/fingerprint_service.py`'s
+  `_uncertainty_regions_cache` are per-process. If anyone adds `--workers N` to the
+  uvicorn command for scaling, these caches silently stop being shared across
+  workers (not wrong, just surprising) — moving them to Redis would be the fix, but
+  wasn't in scope here.
+- **Internal planning docs aren't tracked in git** (`docs/v1-*.md`, `docs/v2-*.md`
+  exist locally but `.gitignore` excludes `./docs` entirely, and `git ls-files docs/`
+  confirms nothing in there was ever committed). Left as-is rather than force-adding
+  them, since that's a call about what ships in the public repo history, not a bug.
+- Several legitimate `except Exception:` fallbacks in `app/utils/architecture_extractor.py`,
+  `app/ml/sklearn_wrapper.py`, `app/ml/tensorflow_wrapper.py`, and
+  `app/monitoring/novelty_scorer.py` were reviewed and left alone — they're
+  intentional best-effort fallbacks (e.g. novelty scoring degrading to "not novel"
+  rather than failing the whole prediction request), not bugs.
+
+---
+
+## 5. What's explicitly NOT done / deferred
+
+- **Prometheus + Grafana** — intentionally skipped (§3.2).
 - **Full user accounts / multi-tenancy** — API keys are a single shared bearer-token
-  model, not per-user/per-account. Anyone with a valid key can see/manage all models.
-- **Rate limiting, RBAC, CI/CD pipeline** — not discussed as explicit asks, not built.
+  model, not per-user/per-account.
+- **Rate limiting, RBAC, CI/CD pipeline** — not built.
+- **The Next.js 14→16 security upgrade** — see §4.3, needs explicit sign-off.
 
-## 5. Known gaps / good next steps for whoever picks this up
+## 6. Good next steps, in priority order
 
-Roughly in priority order:
+1. **Decide on the Next.js CVE situation** (§4.3) — this is the biggest open item.
+2. **Verify the full Docker Compose stack together** — this work was tested via
+   `.venv`/`uvicorn` directly and `npm run dev` locally, never via a complete
+   `docker compose up --build` of all five services at once. Confirm the
+   celery-worker can actually reach Redis/Postgres from inside its container, and
+   that the new `frontend.build.args` wiring produces a working "API Docs" link.
+3. **API key management UX is minimal** — no page listing all issued keys with
+   names; every key is named `"dashboard"` regardless of who/what created it.
+4. **No rate limiting anywhere**, including `/predict`.
+5. **README.md is stale** — still describes the old UI and doesn't mention that
+   Redis/Celery are required for drift detection, or that an API key is required
+   for every non-dashboard request.
+6. **Alert delivery has no push mechanism** — alerts sit in the DB, polled only.
+7. **No `tests/conftest.py`** — each test file duplicates its own DB-fixture setup.
+8. **TensorFlow ingestion is unverified** in this exact environment (§4.2) — test it
+   for real under the Docker image before relying on it.
 
-1. **Verify the full Docker Compose stack together.** This session tested the backend
-   (via `.venv` + `uvicorn` directly against the `modelmesh-db` container) and
-   frontend (via `npm run dev`) locally, and exercised Celery/Redis, but **never ran
-   `docker-compose up --build` for the complete stack** (db + redis + api +
-   celery-worker + frontend) at once. That's the highest-value next verification step
-   — confirm the Dockerfile/compose networking actually works end-to-end, especially
-   the celery-worker's connection to Redis and Postgres from inside its container.
-2. **API key management UX is minimal.** There's no page listing all issued keys with
-   names/creation dates for an admin to audit — only "your browser's current key"
-   status. Every key is named `"dashboard"` regardless of who/what created it. If
-   multiple people or scripts need distinct keys, the create-key flow needs a name
-   input exposed in the UI (the backend schema already supports arbitrary names).
-3. **No rate limiting anywhere**, including `/predict` — worth adding before this is
-   exposed on a real network.
-4. **README.md is stale.** It still describes the old dark-theme UI, the old
-   single-container quickstart, and doesn't mention that Redis/Celery are now required
-   for drift detection to actually run, or that an API key is required for every
-   non-dashboard request. Update the Quickstart section and API endpoint list.
-5. **Alert delivery has no push mechanism** — alerts sit in the DB, visible only by
-   polling the UI/API. No Slack/email/webhook integration. Natural to add now that
-   Celery exists (a task could deliver on alert creation).
-6. **No `tests/conftest.py`** — each test file duplicates its own DB-fixture
-   boilerplate (`TEST_DATABASE_URL` handling, `override_get_db`, etc.). Minor tech
-   debt, not urgent, but flagged in case someone wants to consolidate it.
-7. ~~**Two stray duplicate doc files**: `docs/version 2` and `docs/version2 phases`
-   (no file extension) appear to be accidental duplicates of `docs/v2-spec.md` and
-   `docs/v2-phases.md`. Safe to delete after confirming they're not referenced
-   anywhere.~~ **Done**: All `docs/` files except `README.md` and `PROJECT_STATUS.md`
-   have been deleted (`v1-phases.md`, `v1-prd.md`, `v2-phases.md`, `v2-spec.md`,
-   `version 2`, `version2 phases`).
-8. **Frontend responsiveness of the new theme** was checked at a couple of
-   breakpoints (desktop, one narrow width) but not exhaustively across mobile sizes.
-9. **ONNX ingestion path** exists in code but wasn't exercised/tested in this session
-   — worth a smoke test if it's actually used, or consider trimming if it's dead
-   weight (flagged as a possible-trim candidate earlier in this project's life, never
-   acted on).
-10. **Per-request CPU/memory instrumentation** (`resource.getrusage` in
-    `prediction_service.predict()`) adds overhead to the hot path for a metric that's
-    only ever viewed in aggregate on the Performance tab — candidate for sampling
-    instead of measuring every single request, if `/predict` latency ever matters.
-
-## 6. How to run everything
+## 7. How to run everything
 
 **Backend (local, without Docker):**
 ```bash
@@ -288,8 +256,9 @@ existing keys), save the key — it's stored in the browser and used for all
 subsequent dashboard requests automatically.
 
 **Tests:** `TEST_DATABASE_URL=sqlite:///./test.db .venv/bin/pytest -q`
+(dev-only deps: `pip install -r requirements-dev.txt`)
 
-**Full Docker stack** (not verified together this session — see gap #1 above):
+**Full Docker stack** (not verified together this session — see gap #2 above):
 ```bash
 docker compose up --build
 ```
@@ -298,23 +267,26 @@ docker compose up --build
 
 ## Uncommitted changes in this working tree
 
-Nothing from this session has been committed. `git status` at time of writing:
+Everything in §3 is already committed (`78f8a8b`). The §4 audit/hardening pass is
+**not** — `git status` at time of writing:
 
-**Modified:**
-`app/config.py`, `app/database.py`, `app/main.py`, `app/middleware/__init__.py`,
-`app/services/prediction_service.py`, `demo/run_demo.py`, `demo/simulate_traffic.py`,
-`docker-compose.yml`, `frontend/src/app/globals.css`, `frontend/src/app/layout.tsx`,
-`frontend/src/app/models/[id]/fingerprint/page.tsx`,
-`frontend/src/app/models/[id]/page.tsx`, `frontend/src/app/page.tsx`,
-`frontend/src/hooks/useModelHealth.ts`, `frontend/src/lib/api.ts`,
-`frontend/tailwind.config.js`, `requirements.txt`
+**Modified:** `.gitignore`, `Dockerfile`, `docker-compose.yml`, `requirements.txt`,
+`app/config.py`, `app/main.py`, `app/ml/base_wrapper.py`, `app/ml/loader.py`,
+`app/ml/model_cache.py`, `app/ml/pytorch_wrapper.py`,
+`app/monitoring/drift_detector.py`, `app/monitoring/faiss_indexer.py`,
+`app/monitoring/novelty_scorer.py`, `app/probing/engine.py`, `app/probing/sampler.py`,
+`app/routers/models.py`, `app/services/*.py` (dataset_health, drift, fingerprint,
+performance, prediction, probe, shap), `app/utils/architecture_extractor.py`,
+`app/fingerprinting/comparator.py`, `app/fingerprinting/metrics.py`,
+`frontend/Dockerfile`, `frontend/next.config.js`, `frontend/package.json`,
+`frontend/package-lock.json`, `frontend/src/app/layout.tsx`,
+`frontend/src/app/page.tsx`, 10 files under `tests/`
 
-**New (untracked):**
-`alembic/versions/0011_add_api_keys_table.py`, `app/models/api_key.py`,
-`app/routers/api_keys.py`, `app/schemas/api_key.py`, `app/tasks/`,
-`app/utils/auth.py`, `frontend/src/app/registry/`, `frontend/src/components/`,
-`tests/test_api_keys.py`
+**New:** `.dockerignore`, `.env.example`, `frontend/.dockerignore`,
+`frontend/.eslintrc.json`, `requirements-dev.txt`
 
-Recommend committing in a few logical chunks (e.g. "Celery async drift processing",
-"API key authentication", "White/pink landing + dashboard redesign") rather than one
-giant commit, to keep the history reviewable.
+**Deleted (untracked from git, file itself untouched):** `frontend/tsconfig.tsbuildinfo`
+
+Recommend committing this as its own commit (e.g. "Production-readiness hardening +
+AI-trace cleanup") separate from any further UI work, so the security-relevant fixes
+(CORS crash, hardcoded creds, NEXT_PUBLIC_API_URL bug) are easy to find in history.

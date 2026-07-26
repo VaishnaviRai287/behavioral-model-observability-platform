@@ -29,26 +29,20 @@ class PyTorchWrapper(BaseModelWrapper):
         return result
 
     def predict_with_activations(self, input_array: np.ndarray) -> tuple[PredictionResult, np.ndarray]:
-        """
-        Run inference and return the PredictionResult and the internal activation vector
-        as a numpy array of shape (n_samples, n_latent_features).
-        """
+        """Run inference, returning the prediction plus the penultimate layer's activation vector."""
         tensor = torch.tensor(input_array, dtype=torch.float32)
 
-        # 1. Identify penultimate leaf module
-        # Leaf modules are modules with no children (like nn.Linear, nn.ReLU)
+        # Leaf modules (no children, e.g. nn.Linear/nn.ReLU) — the second-to-last
+        # one is treated as the model's latent representation.
         leaf_modules = [m for m in self._model.modules() if len(list(m.children())) == 0]
         if len(leaf_modules) >= 2:
             target_layer = leaf_modules[-2]
         else:
             target_layer = leaf_modules[-1]
 
-        # 2. Register forward hook to capture activations
         activations = []
         def hook_fn(module, input_val, output_val):
-            # Capture the output tensor, move to CPU, detach from graph, convert to numpy
             t = output_val.detach().cpu().numpy()
-            # Ensure output is flattened to (batch_size, features)
             if len(t.shape) > 2:
                 t = t.reshape(t.shape[0], -1)
             elif len(t.shape) == 1:
@@ -60,13 +54,12 @@ class PyTorchWrapper(BaseModelWrapper):
         try:
             with torch.no_grad():
                 logits = self._model(tensor)
-            
+
             probs = F.softmax(logits, dim=1)[0]
             predicted_class = int(torch.argmax(probs).item())
             confidence = float(probs[predicted_class].item())
             raw_output = probs.tolist()
 
-            # Compile activations
             if activations:
                 activation_vector = np.vstack(activations)
             else:
@@ -79,5 +72,4 @@ class PyTorchWrapper(BaseModelWrapper):
             )
             return result, activation_vector
         finally:
-            # Crucial: Always clean up hook to prevent memory leaks and repeated triggers
             handle.remove()

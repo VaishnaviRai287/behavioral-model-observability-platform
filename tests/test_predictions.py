@@ -13,7 +13,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.ml import model_cache
 
-# ── Test DB ───────────────────────────────────────────────────────────────────
+# Test DB
 
 import os
 
@@ -85,7 +85,7 @@ def model_id(client, sklearn_model_bytes):
     return response.json()["id"]
 
 
-# ── Prediction tests ──────────────────────────────────────────────────────────
+# Prediction tests
 
 def test_predict_returns_200(client, model_id):
     """POST /models/{id}/predict returns 200."""

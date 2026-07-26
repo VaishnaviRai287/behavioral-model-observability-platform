@@ -7,7 +7,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://modelmesh:modelmesh123@localhost:5433/modelmesh"
     upload_dir: str = "uploads"
     redis_url: str = "redis://localhost:6379/0"
-    cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Kept as a plain string rather than list[str]: pydantic-settings tries to
+    # JSON-decode list-typed env vars before any validator sees them, so a normal
+    # comma-separated value like `CORS_ORIGINS=http://a,http://b` from a shell or
+    # docker-compose env would crash the app at startup. Use `.cors_origins_list`.
+    cors_origins: str = "http://localhost:3000"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     # Auth is disabled automatically under pytest (every test file already sets
     # TEST_DATABASE_URL before importing the app) so the existing test suite doesn't

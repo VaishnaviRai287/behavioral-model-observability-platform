@@ -13,7 +13,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.ml import model_cache
 
-# ── Test DB ───────────────────────────────────────────────────────────────────
+# Test DB
 
 import os
 
@@ -84,7 +84,7 @@ def model_id(client, sklearn_model_bytes):
     return response.json()["id"]
 
 
-# ── Health checks ─────────────────────────────────────────────────────────────
+# Health checks
 
 def test_health_live_returns_200(client):
     """GET /health/live returns 200 with status alive."""
@@ -113,7 +113,7 @@ def test_health_ready_reports_cache_size(client, model_id):
     assert response.json()["model_cache_size"] >= 1
 
 
-# ── Model caching ─────────────────────────────────────────────────────────────
+# Model caching
 
 def test_cache_grows_after_prediction(client, model_id):
     """Cache should have 1 entry after the first prediction."""
@@ -139,7 +139,7 @@ def test_cache_invalidated_on_delete(client, model_id):
     assert model_cache.cache_size() == 0
 
 
-# ── Drift alerting ────────────────────────────────────────────────────────────
+# Drift alerting
 
 def test_drift_status_no_fingerprint_returns_404(client, model_id):
     """Drift status with no fingerprint returns 404."""

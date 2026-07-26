@@ -1,4 +1,4 @@
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python
 .venv/
 __pycache__/
 *.pyc
@@ -6,13 +6,12 @@ __pycache__/
 *.pyd
 *.pyw
 
-# ── Environment & secrets ─────────────────────────────────────────────────────
+# Environment & secrets
 .env
 .env.local
 .env.*.local
 
-# ── ML model artefacts ────────────────────────────────────────────────────────
-# Stored in the uploads/ directory managed by the API; never commit model files
+# ML model artifacts — stored in uploads/, managed by the API; never commit model files
 uploads/
 *.pkl
 *.pt
@@ -25,42 +24,41 @@ uploads/
 *.tar.gz
 *.tgz
 
-# ── Demo artefacts ────────────────────────────────────────────────────────────
-# The demo script generates a local model file; exclude it
+# Demo artifacts generated locally by the demo script
 demo/*.pkl
 demo/*.pt
 demo/*.onnx
 
-# ── Databases & caches ────────────────────────────────────────────────────────
+# Databases & caches
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
 .pytest_cache/
 
-# ── macOS ─────────────────────────────────────────────────────────────────────
+# macOS
 .DS_Store
 
-# ── Next.js / Node ────────────────────────────────────────────────────────────
+# Next.js / Node
 frontend/.next/
 frontend/out/
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
 node_modules/
 
-# ── Test & coverage artefacts ─────────────────────────────────────────────────
+# Test & coverage artifacts
 .coverage
 htmlcov/
 
-# ── Build / temp directories ──────────────────────────────────────────────────
+# Build / temp directories
 tmp-home/
 dist/
 build/
 
-# ── Docs: only committed files with clean kebab-case names ───────────────────
-# Old space-named files (docs/phases , docs/prd v1, etc.) are not tracked.
-# New canonical names: docs/v1-phases.md  docs/v1-prd.md  docs/v2-spec.md  docs/v2-phases.md
-./docs 
+# Internal planning docs — not part of the public project history.
+# Canonical filenames: docs/v1-phases.md docs/v1-prd.md docs/v2-spec.md docs/v2-phases.md
+./docs
 
-# ── Local dev scratch & test models ───────────────────────────────────────────
+# Local dev scratch & test models
 scratch/
 test_models/

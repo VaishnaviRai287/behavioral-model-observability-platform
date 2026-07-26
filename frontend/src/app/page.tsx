@@ -146,7 +146,7 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
-                href="http://localhost:8000/docs"
+                href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/docs`}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-physical"

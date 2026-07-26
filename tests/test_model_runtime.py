@@ -15,7 +15,7 @@ from app.ml.sklearn_wrapper import SklearnWrapper
 from app.ml.pytorch_wrapper import PyTorchWrapper
 
 
-# ── Fixtures ─────────────────────────────────────────────────────────────────
+# Fixtures
 
 @pytest.fixture
 def sklearn_model_path(tmp_path):
@@ -61,7 +61,7 @@ def pytorch_pth_model_path(tmp_path):
 SAMPLE_INPUT = np.array([[0.5, 0.5]])   # shape (1, 2) — a single 2-feature sample
 
 
-# ── PredictionResult tests ────────────────────────────────────────────────────
+# PredictionResult tests
 
 def test_prediction_result_fields():
     """PredictionResult holds the expected fields."""
@@ -71,7 +71,7 @@ def test_prediction_result_fields():
     assert result.raw_output == [0.13, 0.87]
 
 
-# ── SklearnWrapper tests ──────────────────────────────────────────────────────
+# SklearnWrapper tests
 
 def test_sklearn_wrapper_loads(sklearn_model_path):
     """SklearnWrapper loads a model without crashing."""
@@ -107,7 +107,7 @@ def test_sklearn_wrapper_predicted_class_is_valid(sklearn_model_path):
     assert 0 <= result.predicted_class < len(result.raw_output)
 
 
-# ── PyTorchWrapper tests ──────────────────────────────────────────────────────
+# PyTorchWrapper tests
 
 def test_pytorch_wrapper_loads(pytorch_model_path):
     """PyTorchWrapper loads a model without crashing."""
@@ -136,7 +136,7 @@ def test_pytorch_wrapper_raw_output_sums_to_one(pytorch_model_path):
     assert abs(sum(result.raw_output) - 1.0) < 1e-5
 
 
-# ── load_model() factory tests ────────────────────────────────────────────────
+# load_model() factory tests
 
 def test_load_model_returns_sklearn_wrapper(sklearn_model_path):
     """load_model() returns a SklearnWrapper for .pkl files."""
@@ -174,15 +174,12 @@ def test_load_model_pytorch_can_predict(pytorch_model_path):
 
 def test_load_model_returns_tensorflow_wrapper(tmp_path):
     """load_model() returns a TensorFlowWrapper for .keras files."""
+    pytest.importorskip("tensorflow")
     keras_path = tmp_path / "model.keras"
     keras_path.write_text("dummy")
-    try:
-        wrapper = load_model(str(keras_path))
-        from app.ml.tensorflow_wrapper import TensorFlowWrapper
-        assert isinstance(wrapper, TensorFlowWrapper)
-    except (ImportError, Exception):
-        # Expected if tensorflow package is not installed in local env
-        pass
+    from app.ml.tensorflow_wrapper import TensorFlowWrapper
+    wrapper = load_model(str(keras_path))
+    assert isinstance(wrapper, TensorFlowWrapper)
 
 
 def test_load_model_unsupported_extension(tmp_path):

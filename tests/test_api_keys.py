@@ -11,7 +11,7 @@ from app.main import app
 from app.ml import model_cache
 from app.models.api_key import ApiKey
 
-# ── Test Database Configuration (mirrors tests/test_drift_alerting.py) ────────
+# Test database configuration — mirrors tests/test_drift_alerting.py
 
 SQLALCHEMY_TEST_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 
@@ -54,7 +54,7 @@ def client():
     return TestClient(app)
 
 
-# ── Bootstrap and enforcement ──────────────────────────────────────────────────
+# Bootstrap and enforcement
 
 def test_bootstrap_creates_first_key_without_auth(client):
     """A fresh instance (zero keys) can mint its first key with no Authorization header."""

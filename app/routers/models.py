@@ -50,14 +50,11 @@ def delete_model(model_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{model_id}/health", response_model=ModelHealthResponse)
 def get_model_health(model_id: str, db: Session = Depends(get_db)):
-    """
-    Retrieve real-time behavioral health status of a model.
-    """
+    """Retrieve real-time behavioral health status of a model."""
     model = db.query(MLModel).filter(MLModel.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # 1. Compute novelty rate over the last 100 predictions
     recent_logs = (
         db.query(PredictionLog)
         .filter(PredictionLog.model_id == model_id)
@@ -68,7 +65,7 @@ def get_model_health(model_id: str, db: Session = Depends(get_db)):
     novel_count = sum(1 for log in recent_logs if log.novelty_flag)
     novelty_rate = novel_count / len(recent_logs) if recent_logs else 0.0
 
-    # 2. Get latest drift scores (KS statistic) per feature
+    # Latest KS statistic per feature.
     features = model.input_schema.get("features", [])
     drift_scores = {}
     for feature in features:
@@ -81,7 +78,6 @@ def get_model_health(model_id: str, db: Session = Depends(get_db)):
         )
         drift_scores[name] = latest_event.ks_statistic if latest_event else 0.0
 
-    # 3. Retrieve count of active, unresolved alerts
     active_alerts = (
         db.query(Alert)
         .filter(Alert.model_id == model_id, Alert.resolved_at.is_(None))

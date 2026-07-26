@@ -48,7 +48,6 @@ def extract_architecture(file_path: str, framework: str) -> dict | None:
     elif framework == "tensorflow":
         suffix = path.suffix.lower()
         
-        # 1. Keras Zip Archive
         if suffix == ".keras":
             try:
                 with zipfile.ZipFile(file_path, 'r') as zf:
@@ -59,7 +58,6 @@ def extract_architecture(file_path: str, framework: str) -> dict | None:
             except Exception as e:
                 return {"error": f"Failed to parse .keras config: {e}"}
                 
-        # 2. H5 Keras file
         elif suffix == ".h5":
             try:
                 # Fallback to search-based JSON extraction to avoid h5py import issues
@@ -70,7 +68,6 @@ def extract_architecture(file_path: str, framework: str) -> dict | None:
             except Exception as e:
                 return {"error": f"Failed to extract H5 config: {e}"}
                 
-        # 3. SavedModel Zip or Directory
         elif suffix in (".zip", ".tar.gz", ".tgz") or path.is_dir():
             try:
                 return scan_saved_model_architecture(file_path)

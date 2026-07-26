@@ -15,7 +15,7 @@ from app.ml import model_cache
 from app.fingerprinting.metrics import compute_fingerprint_metrics
 from app.fingerprinting.comparator import compare_fingerprints
 
-# ── Test DB ───────────────────────────────────────────────────────────────────
+# Test DB
 
 import os
 
@@ -99,7 +99,7 @@ def fingerprint_id(client, probe_session_id):
     return resp.json()["id"]
 
 
-# ── Fingerprint creation tests ────────────────────────────────────────────────
+# Fingerprint creation tests
 
 def test_create_fingerprint_returns_201(client, probe_session_id):
     """POST /probes/{id}/fingerprint returns 201."""
@@ -163,7 +163,7 @@ def test_get_nonexistent_fingerprint(client):
     assert response.status_code == 404
 
 
-# ── Comparison tests ──────────────────────────────────────────────────────────
+# Comparison tests
 
 @pytest.fixture
 def two_fingerprint_ids(client, sklearn_model_bytes):
