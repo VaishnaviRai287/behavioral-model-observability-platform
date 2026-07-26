@@ -58,3 +58,5 @@ build/
 # Local dev scratch & test models
 scratch/
 test_models/
+
+PROJECT_STATUS.md
