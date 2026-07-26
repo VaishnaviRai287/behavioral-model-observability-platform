@@ -6,15 +6,11 @@ def detect_framework(file_path: str) -> str:
     """
     Inspect a saved model file and return its framework.
 
-    Returns one of: "sklearn", "pytorch", "onnx", "tensorflow"
+    Returns one of: "sklearn", "pytorch", "tensorflow"
     Raises ValueError if the file cannot be identified.
     """
     path = Path(file_path)
     suffix = path.suffix.lower()
-
-    # ONNX files always have .onnx extension — easy case
-    if suffix == ".onnx":
-        return "onnx"
 
     # PyTorch files use .pt or .pth extension
     if suffix in (".pt", ".pth"):
@@ -72,5 +68,5 @@ def detect_framework(file_path: str) -> str:
 
     raise ValueError(
         f"Unsupported file extension: {suffix}. "
-        f"Accepted: .pkl, .joblib, .pt, .pth, .onnx, .h5, .keras, .zip, .tar.gz"
+        f"Accepted: .pkl, .joblib, .pt, .pth, .h5, .keras, .zip, .tar.gz"
     )

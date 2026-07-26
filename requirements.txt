@@ -15,9 +15,8 @@ python-multipart==0.0.32
 scikit-learn==1.7.2
 scipy==1.15.3
 torch==2.13.0
-onnxruntime==1.23.2
 # Pinned below 2.0 because tensorflow<2.17 requires numpy<2.0 on Python <=3.11 —
-# scikit-learn/scipy/onnxruntime/faiss-cpu above are all satisfied by 1.26.x too.
+# scikit-learn/scipy/faiss-cpu above are all satisfied by 1.26.x too.
 numpy==1.26.4
 faiss-cpu==1.14.3
 tensorflow>=2.15,<2.17

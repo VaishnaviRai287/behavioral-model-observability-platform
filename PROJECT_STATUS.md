@@ -2,11 +2,9 @@
 
 _Last updated: 2026-07-26. Written for any agent or human picking this project up next._
 
-> **Commit status**: the Celery/API-key/redesign work described in §3 below is already
-> committed (`78f8a8b Adding celery and redis and UI`). The **production-readiness and
-> AI-trace cleanup pass** described in §4 is **not committed yet** — it's sitting
-> uncommitted in the working tree. See [Uncommitted changes](#uncommitted-changes-in-this-working-tree)
-> at the bottom for the exact file list before doing anything else.
+> **Commit status**: everything described in §3 and §4 is committed. The CI fix (§4.5),
+> ONNX removal, and docs/ deletion described below landed in follow-up commits on top
+> of that. There is no outstanding uncommitted work as of this update.
 
 ---
 
@@ -29,7 +27,7 @@ per-prediction explainability on top.
 
 **Stack:** FastAPI + SQLAlchemy + Alembic + Postgres backend, Celery + Redis for async
 drift processing, Next.js 14 (App Router) + Tailwind frontend, Docker Compose for
-orchestration, PyTorch/TensorFlow/scikit-learn/ONNX support for ingested models.
+orchestration, PyTorch/TensorFlow/scikit-learn support for ingested models.
 
 ---
 
@@ -103,7 +101,7 @@ There was zero auth before this (`allow_origins=["*"]`, every endpoint open).
 
 ---
 
-## 4. What was done — production-readiness & AI-trace audit (this session, uncommitted)
+## 4. What was done — production-readiness & AI-trace audit (committed)
 
 The user cleaned up the UI further themselves, then asked for a full audit: make the
 project production-ready and remove signs of AI-assisted generation. Full test suite
@@ -126,14 +124,11 @@ project production-ready and remove signs of AI-assisted generation. Full test s
   `.gitignore`.
 
 ### 4.2 Backend production-readiness
-- **`requirements.txt` was completely unpinned** — now pinned to the exact versions
-  verified installed and passing (`pip freeze` against the working `.venv`). Added
-  `scipy` explicitly (was an unpinned transitive dependency of code that imports it
-  directly). Split test-only deps (`pytest`, `httpx`) into `requirements-dev.txt`.
-  **Known gap**: TensorFlow has no wheel for Python 3.14 — it's pinned to a
-  Python-3.10-compatible range (`>=2.15,<2.17`) but was **not actually verified
-  installable in this environment**; test it explicitly under the Docker image
-  (`python:3.10-slim`) before relying on TF ingestion in production.
+- **`requirements.txt` was completely unpinned** — now pinned to exact versions.
+  Split test-only deps (`pytest`, `httpx`) into `requirements-dev.txt`. The initial
+  pins were verified only against the local `.venv` (Python 3.14) and turned out to
+  be wrong for the actual deployment target (Python 3.10, per the Dockerfile/CI) —
+  see §4.5 for the real fix and how it was verified.
 - **Hardcoded default DB credentials** (`modelmesh`/`modelmesh123`) existed in three
   places (`app/config.py`, `Dockerfile`, `docker-compose.yml`). `docker-compose.yml`
   now reads `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/`CORS_ORIGINS` from a
@@ -194,44 +189,85 @@ project production-ready and remove signs of AI-assisted generation. Full test s
   uvicorn command for scaling, these caches silently stop being shared across
   workers (not wrong, just surprising) — moving them to Redis would be the fix, but
   wasn't in scope here.
-- **Internal planning docs aren't tracked in git** (`docs/v1-*.md`, `docs/v2-*.md`
-  exist locally but `.gitignore` excludes `./docs` entirely, and `git ls-files docs/`
-  confirms nothing in there was ever committed). Left as-is rather than force-adding
-  them, since that's a call about what ships in the public repo history, not a bug.
 - Several legitimate `except Exception:` fallbacks in `app/utils/architecture_extractor.py`,
   `app/ml/sklearn_wrapper.py`, `app/ml/tensorflow_wrapper.py`, and
   `app/monitoring/novelty_scorer.py` were reviewed and left alone — they're
   intentional best-effort fallbacks (e.g. novelty scoring degrading to "not novel"
   rather than failing the whole prediction request), not bugs.
 
+### 4.5 CI fix, ONNX removal, docs cleanup (follow-up commits)
+- **CI was actually broken** (`.github/workflows/test.yml` failing on `pip install`):
+  the §4.2 pins were verified only against the local Python 3.14 `.venv`, but CI and
+  the Dockerfile both target Python 3.10 — `scikit-learn==1.9.0` requires Python
+  ≥3.11, so the CI runner couldn't install it at all. Re-pinned `scikit-learn`,
+  `scipy`, `torch`, `onnxruntime`→removed (see below), and `numpy` to versions
+  verified by actually resolving/installing them in a real `python:3.10-slim`
+  container (not guessed). This also surfaced a second real conflict —
+  `tensorflow<2.17` requires `numpy<2.0` on Python ≤3.11 — fixed by pinning
+  `numpy==1.26.4`.
+- The workflow itself was also going to fail next: it ran `pip install -r
+  requirements.txt` (missing `pytest`/`httpx`, which live in `requirements-dev.txt`
+  since §4.2's split). Fixed to install `requirements-dev.txt`, plus added
+  `cache-dependency-path` for both files.
+- **Torch's default PyPI wheel pulls in ~10GB of NVIDIA CUDA packages** even though
+  this server only ever does CPU inference. Fixed via `--extra-index-url
+  https://download.pytorch.org/whl/cpu` in `requirements.txt` (PyPI stays the primary
+  index so every other package still resolves from there first — don't flip this to
+  `--index-url`, it makes every package check the PyTorch index first and was
+  measurably slower/flakier).
+- All of the above was verified for real: a `python:3.10-slim` container plus a real
+  `postgres:15` service, running the exact install command and `pytest tests/ -v`
+  from the workflow file. Full suite (97 tests) passed. One test failed once during
+  this process (`test_load_model_returns_tensorflow_wrapper`) but passed consistently
+  in every other run (isolated, file-level, and two full-suite reruns) — traced to a
+  torch download that got interrupted and resumed mid-stream in that one run, not a
+  real bug.
+- Added the CI badge to `README.md`.
+- **Removed ONNX ingestion entirely** (user's call — zero test coverage, zero demo
+  usage, confirmed via a full grep sweep before removing): deleted
+  `app/ml/onnx_wrapper.py`; removed the `onnx` branch from `app/ml/loader.py`,
+  `app/utils/framework_detector.py` (suffix check + accepted-extensions error
+  message), and `app/utils/signature_generator.py`; updated docstrings/comments in
+  `app/ml/base_wrapper.py`, `app/__init__.py`, `app/routers/models.py`; dropped
+  `onnxruntime` from `requirements.txt`. **The frontend still references ONNX** in a
+  few spots (`frontend/src/app/page.tsx` marketing copy, `frontend/src/app/registry/page.tsx`
+  framework badge mapping + upload `accept` attribute + status copy) — the user said
+  they'd handle the frontend pass themselves, so these weren't touched.
+- **Deleted `docs/` entirely** (`v1-phases.md`, `v1-prd.md`, `v2-spec.md`,
+  `v2-phases.md`, and two stray duplicate files) — user's call, these were never
+  git-tracked anyway (`.gitignore` excluded `./docs`), so nothing was lost from repo
+  history. Also removed the now-dead `.gitignore` entry for it.
+
 ---
 
 ## 5. What's explicitly NOT done / deferred
 
-- **Prometheus + Grafana** — intentionally skipped (§3.2).
+- **Prometheus + Grafana** — intentionally skipped (§3.2), confirmed again as out of
+  scope.
 - **Full user accounts / multi-tenancy** — API keys are a single shared bearer-token
   model, not per-user/per-account.
-- **Rate limiting, RBAC, CI/CD pipeline** — not built.
+- **Rate limiting, RBAC, CI/CD pipeline beyond the test workflow** — not built.
 - **The Next.js 14→16 security upgrade** — see §4.3, needs explicit sign-off.
+- **ONNX ingestion** — removed entirely, not deferred (§4.5). If ever needed again,
+  it's a clean re-add: one wrapper file, one branch each in `loader.py` /
+  `framework_detector.py` / `signature_generator.py`, plus the frontend bits noted
+  above.
 
 ## 6. Good next steps, in priority order
 
 1. **Decide on the Next.js CVE situation** (§4.3) — this is the biggest open item.
-2. **Verify the full Docker Compose stack together** — this work was tested via
-   `.venv`/`uvicorn` directly and `npm run dev` locally, never via a complete
-   `docker compose up --build` of all five services at once. Confirm the
-   celery-worker can actually reach Redis/Postgres from inside its container, and
-   that the new `frontend.build.args` wiring produces a working "API Docs" link.
+2. **Verify the full Docker Compose stack together** — CI-equivalent verification
+   (Python 3.10 + real Postgres + the exact install/test commands) has been done
+   (§4.5), but the literal `docker compose up --build` with all five services
+   (db, redis, api, celery-worker, frontend) together has still never been run.
+   Confirm the celery-worker can actually reach Redis/Postgres from inside its
+   container, and that the `frontend.build.args` wiring produces a working
+   "API Docs" link. The user is doing this run themselves next.
 3. **API key management UX is minimal** — no page listing all issued keys with
    names; every key is named `"dashboard"` regardless of who/what created it.
 4. **No rate limiting anywhere**, including `/predict`.
-5. **README.md is stale** — still describes the old UI and doesn't mention that
-   Redis/Celery are required for drift detection, or that an API key is required
-   for every non-dashboard request.
-6. **Alert delivery has no push mechanism** — alerts sit in the DB, polled only.
-7. **No `tests/conftest.py`** — each test file duplicates its own DB-fixture setup.
-8. **TensorFlow ingestion is unverified** in this exact environment (§4.2) — test it
-   for real under the Docker image before relying on it.
+5. **Alert delivery has no push mechanism** — alerts sit in the DB, polled only.
+6. **No `tests/conftest.py`** — each test file duplicates its own DB-fixture setup.
 
 ## 7. How to run everything
 
@@ -258,35 +294,7 @@ subsequent dashboard requests automatically.
 **Tests:** `TEST_DATABASE_URL=sqlite:///./test.db .venv/bin/pytest -q`
 (dev-only deps: `pip install -r requirements-dev.txt`)
 
-**Full Docker stack** (not verified together this session — see gap #2 above):
+**Full Docker stack** (not verified together yet — see §6 item 2):
 ```bash
 docker compose up --build
 ```
-
----
-
-## Uncommitted changes in this working tree
-
-Everything in §3 is already committed (`78f8a8b`). The §4 audit/hardening pass is
-**not** — `git status` at time of writing:
-
-**Modified:** `.gitignore`, `Dockerfile`, `docker-compose.yml`, `requirements.txt`,
-`app/config.py`, `app/main.py`, `app/ml/base_wrapper.py`, `app/ml/loader.py`,
-`app/ml/model_cache.py`, `app/ml/pytorch_wrapper.py`,
-`app/monitoring/drift_detector.py`, `app/monitoring/faiss_indexer.py`,
-`app/monitoring/novelty_scorer.py`, `app/probing/engine.py`, `app/probing/sampler.py`,
-`app/routers/models.py`, `app/services/*.py` (dataset_health, drift, fingerprint,
-performance, prediction, probe, shap), `app/utils/architecture_extractor.py`,
-`app/fingerprinting/comparator.py`, `app/fingerprinting/metrics.py`,
-`frontend/Dockerfile`, `frontend/next.config.js`, `frontend/package.json`,
-`frontend/package-lock.json`, `frontend/src/app/layout.tsx`,
-`frontend/src/app/page.tsx`, 10 files under `tests/`
-
-**New:** `.dockerignore`, `.env.example`, `frontend/.dockerignore`,
-`frontend/.eslintrc.json`, `requirements-dev.txt`
-
-**Deleted (untracked from git, file itself untouched):** `frontend/tsconfig.tsbuildinfo`
-
-Recommend committing this as its own commit (e.g. "Production-readiness hardening +
-AI-trace cleanup") separate from any further UI work, so the security-relevant fixes
-(CORS crash, hardcoded creds, NEXT_PUBLIC_API_URL bug) are easy to find in history.

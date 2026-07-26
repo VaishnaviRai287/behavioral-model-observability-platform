@@ -25,7 +25,7 @@ async def upload_model(
 
     - **name**: Human-readable model name
     - **schema**: JSON string describing feature names, types, and bounds
-    - **file**: Model artifact (.pkl, .joblib, .pt, .onnx)
+    - **file**: Model artifact (.pkl, .joblib, .pt, .pth, .h5, .keras)
     """
     return model_service.upload_model(db, name, schema, file)
 

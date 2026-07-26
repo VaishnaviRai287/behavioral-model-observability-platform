@@ -55,10 +55,6 @@ tmp-home/
 dist/
 build/
 
-# Internal planning docs — not part of the public project history.
-# Canonical filenames: docs/v1-phases.md docs/v1-prd.md docs/v2-spec.md docs/v2-phases.md
-./docs
-
 # Local dev scratch & test models
 scratch/
 test_models/

@@ -55,13 +55,7 @@ def extract_parameter_metadata(file_path: str, framework: str) -> dict:
                         "parameters": layer.count_params() if hasattr(layer, "count_params") else 0
                     })
                 metadata["layers"] = layer_params
-                
-        elif framework == "onnx" and model_obj:
-            inputs = [i.name for i in model_obj.get_inputs()]
-            outputs = [o.name for o in model_obj.get_outputs()]
-            metadata["inputs"] = inputs
-            metadata["outputs"] = outputs
-            
+
     except Exception as e:
         metadata["load_error"] = str(e)
         

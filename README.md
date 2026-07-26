@@ -13,7 +13,7 @@ Most machine learning monitoring tools watch the wrapper around a model, such as
 ### Features
 
 #### 1. Multi-Framework Autopsy
-* Ingestion support for scikit-learn (.pkl, .joblib), PyTorch (.pt, .pth), TensorFlow/Keras (.h5, .keras, SavedModel directories), and ONNX (.onnx).
+* Ingestion support for scikit-learn (.pkl, .joblib), PyTorch (.pt, .pth), and TensorFlow/Keras (.h5, .keras, SavedModel directories).
 * Automatic framework detection and model architecture topology extraction.
 * Unique deterministic model signature generation based on feature schema, layer structures, and parameter weights checksums.
 
@@ -124,7 +124,7 @@ docker compose up --build
 ├── app/
 │   ├── database.py      # Database connection setup
 │   ├── main.py          # FastAPI application configuration
-│   ├── ml/              # Model wrappers (sklearn, PyTorch, Keras, ONNX)
+│   ├── ml/              # Model wrappers (sklearn, PyTorch, Keras)
 │   ├── middleware/      # Request logging middleware
 │   ├── models/          # SQLAlchemy database schema models
 │   ├── monitoring/      # FAISS indexing, novelty scoring, drift detection, alert engine

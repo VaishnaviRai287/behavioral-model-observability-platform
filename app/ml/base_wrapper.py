@@ -6,7 +6,7 @@ from app.ml.prediction_result import PredictionResult
 
 
 class BaseModelWrapper(ABC):
-    """Common interface every framework-specific wrapper (sklearn, PyTorch, ONNX) implements."""
+    """Common interface every framework-specific wrapper (sklearn, PyTorch, TensorFlow) implements."""
 
     def __init__(self, file_path: str):
         self.file_path = file_path
